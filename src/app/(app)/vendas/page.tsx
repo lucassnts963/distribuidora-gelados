@@ -1,6 +1,7 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listSales, orgStock, listContacts, listOrgPrices, listVariantCosts } from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
+import { fmtDate } from "@/lib/format";
 import { NewSaleForm } from "./NewSaleForm";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export default async function VendasPage() {
         {!sales.length ? (
           <Empty>Nenhuma venda ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {sales.map((sale) => {
               const contact = sale.contact as unknown as { name: string } | null;
               return (
@@ -36,8 +37,7 @@ export default async function VendasPage() {
                   <div>
                     <div className="font-semibold">{contact?.name ?? "Venda avulsa"}</div>
                     <div className="text-xs muted">
-                      {sale.channel === "wholesale" ? "Atacado" : "Varejo"} ·{" "}
-                      {new Date(sale.created_at).toLocaleDateString("pt-BR")}
+                      {sale.channel === "wholesale" ? "Atacado" : "Varejo"} · {fmtDate(sale.created_at)}
                     </div>
                   </div>
                   <Money cents={sale.total_cents} className="font-bold" />

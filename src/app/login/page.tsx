@@ -8,7 +8,7 @@ import { GiroMark } from "@/components/GiroMark";
 export default function LoginPage() {
   const [state, action, pending] = useActionState(signInAction, null);
   return (
-    <main className="flex min-h-[80vh] flex-col justify-center">
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-8">
       <div className="mb-8 text-center">
         <GiroMark size={64} className="mx-auto mb-3" />
         <h1 className="h1">Giro</h1>

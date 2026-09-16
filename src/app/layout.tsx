@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR">
       <body>
-        <div className="mx-auto max-w-2xl px-4 pb-24 pt-5">{children}</div>
+        {children}
         <RegisterServiceWorker />
       </body>
     </html>

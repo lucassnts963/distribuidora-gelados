@@ -24,7 +24,7 @@ export default async function ProdutosPage() {
         {!products.length ? (
           <Empty>Nenhum produto ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {products.map((p) => (
               <li key={p.id}>
                 <Link href={`/produtos/${p.id}`} className="card block p-3">

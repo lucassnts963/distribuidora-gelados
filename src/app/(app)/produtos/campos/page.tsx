@@ -1,6 +1,7 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listCustomFields } from "@/lib/queries";
 import { Section, Empty } from "@/components/ui";
+import { BackLink } from "@/components/BackLink";
 import { toggleCustomFieldAction } from "../actions";
 import { CustomFieldForm } from "./CustomFieldForm";
 
@@ -21,6 +22,7 @@ export default async function CustomFieldsPage() {
 
   return (
     <main>
+      <BackLink href="/produtos" label="Produtos" />
       <h1 className="h1">Campos personalizados</h1>
       <p className="text-sm muted">
         Esses campos aparecem no cadastro de produto, além dos campos padrão (nome, SKU, descrição).
@@ -30,7 +32,7 @@ export default async function CustomFieldsPage() {
         {!fields.length ? (
           <Empty>Nenhum campo personalizado ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {fields.map((f) => (
               <li key={f.id} className="card flex items-center justify-between gap-2 p-3">
                 <div>

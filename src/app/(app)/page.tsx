@@ -16,7 +16,7 @@ export default async function PainelPage() {
       <p className="text-sm muted">Olá, {profile.fullName || profile.email}</p>
 
       <Section title="Situação">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           <Stat label="Produção" value={capabilities.hasOwnProducts ? "Ativa" : "Inativa"} />
           <Stat label="Clientes ativos" value={String(capabilities.supplierPartnerCount)} />
           <Stat label="Fornecedores ativos" value={String(capabilities.buyerPartnerCount)} />
@@ -24,7 +24,7 @@ export default async function PainelPage() {
       </Section>
 
       <Section title="Rede">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
           <Link href="/parcerias" className="card p-4">
             <div className="text-2xl">⇄</div>
             <div className="mt-1 font-semibold">Parcerias</div>
@@ -39,7 +39,7 @@ export default async function PainelPage() {
       </Section>
 
       <Section title="Produção">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
           <Link href="/produtos" className="card p-4">
             <div className="text-2xl">📦</div>
             <div className="mt-1 font-semibold">Produtos</div>
@@ -64,7 +64,7 @@ export default async function PainelPage() {
       </Section>
 
       <Section title="Comercial">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
           <Link href="/vendas" className="card p-4">
             <div className="text-2xl">💰</div>
             <div className="mt-1 font-semibold">Vendas</div>

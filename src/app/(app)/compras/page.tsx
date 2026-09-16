@@ -1,6 +1,7 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listExternalPurchases, listVisibleVariants } from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
+import { fmtDate } from "@/lib/format";
 import { NewExternalPurchaseForm } from "./NewExternalPurchaseForm";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +24,13 @@ export default async function ComprasPage() {
         {!purchases.length ? (
           <Empty>Nenhuma compra externa ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {purchases.map((p) => (
               <li key={p.id} className="card flex items-center justify-between p-3 text-sm">
                 <div>
                   <div className="font-semibold">{p.supplier_name || "Fornecedor não informado"}</div>
                   <div className="text-xs muted">
-                    {new Date(p.occurred_on).toLocaleDateString("pt-BR")}
+                    {fmtDate(p.occurred_on)}
                     {p.note ? ` · ${p.note}` : ""}
                   </div>
                 </div>

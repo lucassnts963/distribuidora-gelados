@@ -1,6 +1,7 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listExpenses } from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
+import { fmtDate } from "@/lib/format";
 import { NewExpenseForm } from "./NewExpenseForm";
 
 export const dynamic = "force-dynamic";
@@ -19,13 +20,13 @@ export default async function DespesasPage() {
         {!expenses.length ? (
           <Empty>Nenhuma despesa ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {expenses.map((e) => (
               <li key={e.id} className="card flex items-center justify-between p-3 text-sm">
                 <div>
                   <div className="font-semibold">{e.category}</div>
                   <div className="text-xs muted">
-                    {new Date(e.occurred_on).toLocaleDateString("pt-BR")}
+                    {fmtDate(e.occurred_on)}
                     {e.description ? ` · ${e.description}` : ""}
                   </div>
                 </div>

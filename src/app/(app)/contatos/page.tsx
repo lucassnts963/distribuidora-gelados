@@ -22,7 +22,7 @@ export default async function ContatosPage() {
         {!contacts.length ? (
           <Empty>Nenhum contato ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {contacts.map((c) => (
               <li key={c.id} className="card p-3">
                 <div className="font-semibold">{c.name}</div>

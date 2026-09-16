@@ -1,6 +1,7 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listProducts, listProductionBatches, listCapacityPlans, listVariantIdsWithRecipe } from "@/lib/queries";
 import { Empty } from "@/components/ui";
+import { fmtDate } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Modal } from "@/components/Modal";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -49,7 +50,7 @@ export default async function ProducaoPage() {
                   {!batches.length ? (
                     <Empty>Nenhum lote de produção ainda.</Empty>
                   ) : (
-                    <ul className="space-y-2">
+                    <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                       {batches.map((b) => {
                         const product = b.products as unknown as { name: string } | null;
                         const variant = b.product_variants as unknown as { name: string } | null;
@@ -114,7 +115,7 @@ export default async function ProducaoPage() {
                   {!plans.length ? (
                     <Empty>Nenhum plano de capacidade ainda.</Empty>
                   ) : (
-                    <ul className="space-y-2">
+                    <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                       {plans.map((p) => {
                         const variant = p.product_variants as unknown as { name: string } | null;
                         return (
@@ -123,8 +124,7 @@ export default async function ProducaoPage() {
                               {variant?.name ?? "Geral"} · {p.planned_qty} un
                             </div>
                             <div className="text-xs muted">
-                              {new Date(p.period_start).toLocaleDateString("pt-BR")} –{" "}
-                              {new Date(p.period_end).toLocaleDateString("pt-BR")}
+                              {fmtDate(p.period_start)} – {fmtDate(p.period_end)}
                               {p.notes ? ` · ${p.notes}` : ""}
                             </div>
                           </li>

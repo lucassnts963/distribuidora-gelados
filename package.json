@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
     "test:custo": "tsx scripts/test-custo.mts",
+    "test:datas": "TZ=America/Sao_Paulo tsx scripts/test-datas.mts && TZ=UTC tsx scripts/test-datas.mts",
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {

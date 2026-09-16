@@ -57,7 +57,7 @@ export default async function PedidosPage() {
         {!received.length ? (
           <Empty>Nenhum pedido recebido ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {received.map((o) => {
               const buyer = o.buyer as unknown as { name: string } | null;
               const contact = o.contact as unknown as { name: string } | null;
@@ -121,7 +121,7 @@ export default async function PedidosPage() {
         {!placed.length ? (
           <Empty>Nenhum pedido feito ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {placed.map((o) => {
               const supplier = o.supplier as unknown as { name: string } | null;
               return (

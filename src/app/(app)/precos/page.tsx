@@ -24,7 +24,7 @@ export default async function PrecosPage() {
         {!stock.length ? (
           <Empty>Nenhuma variação em estoque ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {stock.map((s) => {
               const price = prices.get(s.variantId);
               return (

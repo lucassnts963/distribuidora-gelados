@@ -1,6 +1,8 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listRawMaterials, rawMaterialBalance, listRawMaterialMovements } from "@/lib/queries";
 import { Section, Empty } from "@/components/ui";
+import { BackLink } from "@/components/BackLink";
+import { fmtDate } from "@/lib/format";
 import { MovementForm } from "./MovementForm";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +23,7 @@ export default async function RawMaterialPage({ params }: { params: Promise<{ id
 
   return (
     <main>
+      <BackLink href="/insumos" label="Insumos" />
       <h1 className="h1">{material.name}</h1>
       <p className="tabular text-sm muted">
         Saldo atual: {balance} {material.unit}
@@ -34,7 +37,7 @@ export default async function RawMaterialPage({ params }: { params: Promise<{ id
         {!movements.length ? (
           <Empty>Nenhum movimento ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {movements.map((m) => (
               <li key={m.id} className="card flex items-center justify-between p-3 text-sm">
                 <div>
@@ -42,9 +45,9 @@ export default async function RawMaterialPage({ params }: { params: Promise<{ id
                     {m.direction === "in" ? "Entrada" : "Saída"}: {m.qty} {material.unit}
                   </div>
                   <div className="text-xs muted">
-                    {new Date(m.occurred_at).toLocaleDateString("pt-BR")}
+                    {fmtDate(m.occurred_at)}
                     {m.batch_number ? ` · lote ${m.batch_number}` : ""}
-                    {m.expires_on ? ` · vence ${new Date(m.expires_on).toLocaleDateString("pt-BR")}` : ""}
+                    {m.expires_on ? ` · vence ${fmtDate(m.expires_on)}` : ""}
                     {m.reason ? ` · ${m.reason}` : ""}
                   </div>
                 </div>

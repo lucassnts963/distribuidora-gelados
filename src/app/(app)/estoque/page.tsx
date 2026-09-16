@@ -1,6 +1,7 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listInventoryLots, openStagesByLot, orgStock, listProducts } from "@/lib/queries";
 import { Section } from "@/components/ui";
+import { daysUntil } from "@/lib/format";
 import { LossForm } from "./LossForm";
 import { EstoqueList } from "./EstoqueList";
 
@@ -15,11 +16,6 @@ const stageLabel: Record<string, string> = {
   sold: "Vendido",
 };
 const STAGES = Object.keys(stageLabel);
-
-function daysUntil(dateStr: string) {
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
 
 export default async function EstoquePage() {
   const profile = await getSessionProfile();

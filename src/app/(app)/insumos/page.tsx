@@ -20,7 +20,7 @@ export default async function InsumosPage() {
         {!materials.length ? (
           <Empty>Nenhum insumo ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {materials.map((m, i) => (
               <li key={m.id}>
                 <Link href={`/insumos/${m.id}`} className="card flex items-center justify-between p-3">

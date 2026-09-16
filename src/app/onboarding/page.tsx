@@ -9,7 +9,7 @@ export default async function OnboardingPage() {
   if (profile) redirect("/");
 
   return (
-    <main className="flex min-h-[80vh] flex-col justify-center">
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-8">
       <div className="mb-8 text-center">
         <h1 className="h1">Sua organização</h1>
         <p className="text-sm muted">

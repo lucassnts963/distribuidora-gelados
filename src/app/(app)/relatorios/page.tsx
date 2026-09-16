@@ -7,7 +7,7 @@ import {
   supplierAvailableStock,
 } from "@/lib/queries";
 import { Section, Empty, Stat } from "@/components/ui";
-import { monthOf, monthStart, monthEnd } from "@/lib/format";
+import { monthOf, monthStart, monthEnd, fmtMonth } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +36,10 @@ export default async function RelatoriosPage() {
   return (
     <main>
       <h1 className="h1">Relatórios</h1>
-      <p className="text-sm muted">Mês atual ({month})</p>
+      <p className="text-sm muted">Mês atual ({fmtMonth(month)})</p>
 
       <Section title="Resumo do mês">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
           <Stat label="Receita" value={fmt(summary.revenue)} tone="brand" />
           <Stat label="CMV" value={fmt(summary.cmv)} />
           <Stat label="Lucro bruto" value={fmt(summary.grossProfit)} tone={summary.grossProfit >= 0 ? "good" : "bad"} />
@@ -50,14 +50,16 @@ export default async function RelatoriosPage() {
       </Section>
 
       <Section title="Atacado x Varejo">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid max-w-xl grid-cols-2 gap-3">
           <Stat label="Atacado" value={fmt(channels.wholesale.revenue)} sub={`${channels.wholesale.orders} venda(s)`} />
           <Stat label="Varejo" value={fmt(channels.retail.revenue)} sub={`${channels.retail.orders} venda(s)`} />
         </div>
       </Section>
 
       <Section title="Estoque">
-        <Stat label="Valor em estoque (custo)" value={fmt(stock)} />
+        <div className="max-w-xs">
+          <Stat label="Valor em estoque (custo)" value={fmt(stock)} />
+        </div>
       </Section>
 
       {supplierStocks.length > 0 && (

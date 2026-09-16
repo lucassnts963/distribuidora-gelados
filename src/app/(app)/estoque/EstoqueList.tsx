@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Section, Empty } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
+import { fmtDate } from "@/lib/format";
 import { advanceLotStageAction } from "./actions";
 
 type StockRow = { variantId: string; name: string; product: string; qty: number };
@@ -45,7 +46,7 @@ export function EstoqueList({ stock, lots }: { stock: StockRow[]; lots: LotRow[]
         {!filteredStock.length ? (
           <Empty>{query ? "Nada encontrado." : "Nenhum movimento de estoque ainda."}</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {filteredStock.map((s) => (
               <li key={s.variantId} className="card flex items-center justify-between p-3">
                 <div>
@@ -65,7 +66,7 @@ export function EstoqueList({ stock, lots }: { stock: StockRow[]; lots: LotRow[]
             {query ? "Nada encontrado." : "Nenhum lote com controle de validade ainda — lote é opcional."}
           </Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {filteredLots.map((l) => (
               <li key={l.id} className="card space-y-2 p-3">
                 <div className="flex items-center justify-between">
@@ -77,7 +78,7 @@ export function EstoqueList({ stock, lots }: { stock: StockRow[]; lots: LotRow[]
                     <div className="text-xs muted">
                       {l.qtyRemaining} un restantes
                       {l.expiresOn &&
-                        ` · vence em ${new Date(l.expiresOn).toLocaleDateString("pt-BR")}` +
+                        ` · vence em ${fmtDate(l.expiresOn)}` +
                           (l.days !== null ? ` (${l.days >= 0 ? `${l.days}d` : "vencido"})` : "")}
                     </div>
                   </div>

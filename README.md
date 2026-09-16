@@ -58,6 +58,31 @@ SUPABASE_SERVICE_ROLE_KEY=<pegue em Project Settings > API> npm run test:custo
 (A service role bypassa RLS só pra montar o cenário de teste — a lógica
 testada é a mesma usada pela aplicação em produção.)
 
+## Datas
+
+Colunas de data pura do banco (`occurred_on`, `expires_on`, `period_*`,
+`produced_on`) vêm como `"YYYY-MM-DD"` e **não** podem passar por
+`new Date(str)`: o parse é UTC e o render é local, então em qualquer fuso
+negativo o dia volta um (uma despesa lançada dia 16 aparecia como 15).
+Use sempre os helpers de `src/lib/format.ts` — `fmtDate` (dd/mm/aaaa),
+`fmtDayMonth` (dd/mm), `fmtMonth` (mm/aaaa) e `daysUntil`. Eles tratam
+timestamptz (que tem `T`) como instante de verdade e data pura campo a
+campo.
+
+```bash
+npm run test:datas   # roda em America/Sao_Paulo e em UTC
+```
+
+## Layout
+
+Mesma base pra celular e PC: abaixo de `lg` a navegação é a barra inferior
+com as abas mais usadas; a partir de `lg` vira sidebar fixa com todos os
+módulos agrupados (Rede / Produção / Comercial) e o conteúdo abre em
+`max-w-6xl` com listas em grade de até 3 colunas. Sub-páginas
+(`/produtos/[id]`, `/insumos/[id]`, `/produtos/campos`) usam `BackLink`,
+porque instalado como PWA o app roda em standalone e não tem barra do
+navegador pra voltar.
+
 ## Checklist de teste manual
 
 Não há um e2e automatizado nesta entrega (ver nota abaixo). Sugestão de

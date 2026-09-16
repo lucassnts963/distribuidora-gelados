@@ -51,7 +51,7 @@ export default async function ParceriasPage() {
         {!asSupplier?.length ? (
           <Empty>Ninguém propôs comprar de você ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {asSupplier.map((row) => {
               const buyer = row.buyer as unknown as { id: string; name: string } | null;
               return (
@@ -85,7 +85,7 @@ export default async function ParceriasPage() {
         {!asBuyer?.length ? (
           <Empty>Você ainda não propôs comprar de ninguém.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {asBuyer.map((row) => {
               const supplier = row.supplier as unknown as { id: string; name: string } | null;
               return (

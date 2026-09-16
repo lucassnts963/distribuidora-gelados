@@ -2,6 +2,7 @@ import { getSessionProfile } from "@/lib/auth";
 import { getProduct, listCustomFields, listRawMaterials, listRecipeItems } from "@/lib/queries";
 import { Section, Empty } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
+import { BackLink } from "@/components/BackLink";
 import { toggleVariantAction } from "../actions";
 import { AddVariantForm } from "./AddVariantForm";
 import { CustomValuesForm } from "./CustomValuesForm";
@@ -31,6 +32,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   return (
     <main>
+      <BackLink href="/produtos" label="Produtos" />
       <h1 className="h1">{product.name}</h1>
       {product.sku && <p className="text-sm muted">SKU: {product.sku}</p>}
 
@@ -38,7 +40,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         {!product.product_variants?.length ? (
           <Empty>Nenhuma variação ainda.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {product.product_variants.map((v) => (
               <li key={v.id} className="card space-y-2 p-3">
                 <div className="flex items-center justify-between gap-2">
