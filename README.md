@@ -70,44 +70,50 @@ abas anônimas) representando um fabricante e um distribuidor parceiro:
 3. `/produtos/campos` → criar um campo personalizado (ex: validade padrão),
    voltar em `/produtos/<id>` e preencher o valor.
 4. `/insumos` → cadastrar insumo, lançar entrada.
-5. `/producao` → planejar lote, iniciar, concluir (com lote/validade),
-   conferir em `/estoque` que o saldo e a validade aparecem.
-6. `/estoque` → avançar a etapa do lote, lançar uma perda pequena e conferir
+5. `/produtos/<id>` → na variação, cadastrar a receita (insumo + qtd. por
+   unidade).
+6. `/producao` → planejar lote (usar o botão "Usar planejado" ao concluir),
+   iniciar, concluir (com lote/validade) — conferir que o custo unitário
+   veio calculado sozinho (sem digitar) e que `/insumos` mostra o saldo do
+   insumo descontado pela quantidade da receita × produzida.
+7. `/estoque` → avançar a etapa do lote, lançar uma perda pequena e conferir
    que o saldo desconta.
-7. `/config` → copiar o **código de convite**. Na seção "Equipe", convidar
+8. `/config` → copiar o **código de convite**. Na seção "Equipe", convidar
    um segundo usuário (nome + email + papel) e conferir que o email de
    convite chega (depende do SMTP configurado no projeto Supabase).
 
 **Conta B (distribuidor)**
-8. Criar organização "Distribuidor Teste".
-9. `/parcerias` → colar o código de convite da Conta A, escolher "vou
-   comprar dele", propor.
+9. Criar organização "Distribuidor Teste".
+10. `/parcerias` → colar o código de convite da Conta A, escolher "vou
+    comprar dele", propor.
 
 **Conta A**
-10. `/parcerias` → aceitar a parceria pendente.
+11. `/parcerias` → aceitar a parceria pendente.
 
 **Conta B**
-11. `/pedidos` → conferir que o fornecedor aparece em "Novo pedido" com a
-    disponibilidade da Conta A, solicitar um pedido.
+12. `/pedidos` → conferir que o fornecedor aparece em "Novo pedido" com a
+    disponibilidade da Conta A e o preço já vindo da tabela dele (sem
+    campo pra digitar preço), solicitar um pedido.
 
 **Conta A**
-12. `/pedidos` → aceitar → iniciar separação → despachar. Conferir que o
+13. `/pedidos` → aceitar → iniciar separação → despachar. Conferir que o
     próprio estoque (`/estoque`) baixou.
 
 **Conta B**
-13. `/pedidos` → confirmar recebimento. Conferir que o estoque
+14. `/pedidos` → confirmar recebimento. Conferir que o estoque
     (`orgStock`, aparece em `/vendas` ao montar uma venda) subiu.
-14. `/precos` → definir preço de atacado/varejo pra variação recebida.
-15. `/contatos` → cadastrar um cliente.
-16. `/vendas` → vender pro contato, conferir custo médio e total.
-17. `/despesas` → lançar uma despesa.
-18. `/relatorios` → conferir receita, CMV, lucro e disponibilidade do
+15. `/precos` → definir preço de atacado/varejo pra variação recebida.
+16. `/contatos` → cadastrar um cliente.
+17. `/vendas` → vender pro contato, digitar um preço abaixo do custo médio
+    e conferir o alerta; depois conferir custo médio e total no histórico.
+18. `/despesas` → lançar uma despesa.
+19. `/relatorios` → conferir receita, CMV, lucro e disponibilidade do
     fornecedor parceiro (sem aparecer custo/insumos da Conta A).
 
 **Multi-tenant (o que NÃO deve funcionar)**
-19. Confirmar que a Conta B não vê `/producao`, `/insumos` nem o custo dos
+20. Confirmar que a Conta B não vê `/producao`, `/insumos` nem o custo dos
     movimentos da Conta A — só a disponibilidade em `/pedidos`/`/relatorios`.
-20. Criar uma terceira organização sem nenhuma parceria e confirmar que ela
+21. Criar uma terceira organização sem nenhuma parceria e confirmar que ela
     não vê nada das outras duas.
 
 > **Nota de ambiente**: esta reescrita foi desenvolvida numa sessão sem

@@ -118,3 +118,80 @@ export async function currentAvgCost(orgId: string, variantId: string): Promise<
     .maybeSingle();
   return data?.avg_cost_cents ?? 0;
 }
+
+type RawMaterialMovement = {
+  id: string;
+  direction: "in" | "out";
+  qty: number;
+  unit_cost_cents: number;
+  occurred_at: string;
+};
+
+/**
+ * Mesma media movel ponderada de recalcVariantCostWith, mas sobre
+ * raw_material_movements (entrada/saida de insumo em vez de
+ * producao/venda de produto acabado). `in` entra pelo custo lancado;
+ * `out` (inclusive consumo por producao) sai pelo custo medio vigente,
+ * congelado no proprio movimento.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function recalcRawMaterialCostWith(supabase: SupabaseClient<any>, orgId: string, rawMaterialId: string) {
+  const { data } = await supabase
+    .from("raw_material_movements")
+    .select("id, direction, qty, unit_cost_cents, occurred_at")
+    .eq("raw_material_id", rawMaterialId);
+
+  const movements = (data ?? []) as RawMaterialMovement[];
+  movements.sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : 0));
+
+  let qty = 0;
+  let value = 0;
+  let last = 0;
+  const avg = () => (qty > 0 ? Math.round(value / qty) : last);
+
+  const updates: { id: string; unit_cost_cents: number }[] = [];
+
+  for (const m of movements) {
+    if (m.direction === "in") {
+      qty += Number(m.qty);
+      value += Number(m.qty) * m.unit_cost_cents;
+      last = m.unit_cost_cents;
+    } else {
+      const unitCost = avg();
+      updates.push({ id: m.id, unit_cost_cents: unitCost });
+      qty -= Number(m.qty);
+      value -= Number(m.qty) * unitCost;
+    }
+    if (qty <= 0) {
+      qty = Math.max(0, qty);
+      value = 0;
+    }
+    if (value < 0) value = 0;
+  }
+
+  await Promise.all(
+    updates.map((u) =>
+      supabase.from("raw_material_movements").update({ unit_cost_cents: u.unit_cost_cents }).eq("id", u.id)
+    )
+  );
+
+  await supabase.from("raw_material_costs").upsert(
+    {
+      org_id: orgId,
+      raw_material_id: rawMaterialId,
+      avg_cost_cents: avg(),
+      qty,
+      value_cents: Math.round(value),
+      last_cost_cents: last,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id,raw_material_id" }
+  );
+
+  return { avgCostCents: avg(), qty, valueCents: Math.round(value), lastCostCents: last };
+}
+
+export async function recalcRawMaterialCost(orgId: string, rawMaterialId: string) {
+  const supabase = await createClient();
+  return recalcRawMaterialCostWith(supabase, orgId, rawMaterialId);
+}

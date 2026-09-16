@@ -1,5 +1,5 @@
 import { getSessionProfile } from "@/lib/auth";
-import { listProducts, listProductionBatches, listCapacityPlans } from "@/lib/queries";
+import { listProducts, listProductionBatches, listCapacityPlans, listVariantIdsWithRecipe } from "@/lib/queries";
 import { Section, Empty } from "@/components/ui";
 import { startBatchAction, cancelBatchAction } from "./actions";
 import { NewBatchForm } from "./NewBatchForm";
@@ -19,10 +19,11 @@ export default async function ProducaoPage() {
   const profile = await getSessionProfile();
   if (!profile) return null;
 
-  const [products, batches, plans] = await Promise.all([
+  const [products, batches, plans, variantsWithRecipe] = await Promise.all([
     listProducts(profile.org.id),
     listProductionBatches(profile.org.id),
     listCapacityPlans(profile.org.id),
+    listVariantIdsWithRecipe(profile.org.id),
   ]);
 
   return (
@@ -66,7 +67,14 @@ export default async function ProducaoPage() {
                     )}
                   </div>
                   {b.status === "in_progress" && (
-                    <CompleteBatchForm batchId={b.id} products={products} defaultVariantId={b.variant_id} />
+                    <CompleteBatchForm
+                      batchId={b.id}
+                      products={products}
+                      defaultVariantId={b.variant_id}
+                      batchNumber={b.batch_number}
+                      plannedQty={b.planned_qty}
+                      variantsWithRecipe={variantsWithRecipe}
+                    />
                   )}
                 </li>
               );

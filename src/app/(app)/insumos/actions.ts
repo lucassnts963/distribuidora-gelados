@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
 import { toCents } from "@/lib/format";
+import { recalcRawMaterialCost } from "@/lib/costing";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -28,6 +29,9 @@ export async function createRawMaterialAction(_: unknown, form: FormData) {
 }
 
 export async function recordRawMaterialMovementAction(_: unknown, form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile) return { error: "Sessão inválida." };
+
   const rawMaterialId = s(form, "raw_material_id");
   const direction = s(form, "direction");
   const qty = Number(s(form, "qty").replace(",", "."));
@@ -49,6 +53,8 @@ export async function recordRawMaterialMovementAction(_: unknown, form: FormData
     reason: reason || null,
   });
   if (error) return { error: "Não deu pra lançar: " + error.message };
+
+  await recalcRawMaterialCost(profile.org.id, rawMaterialId);
 
   revalidatePath(`/insumos/${rawMaterialId}`);
   return { ok: true };

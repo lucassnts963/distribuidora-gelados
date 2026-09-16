@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
 import { toCents } from "@/lib/format";
-import { recalcVariantCost } from "@/lib/costing";
+import { recalcVariantCost, recalcRawMaterialCost } from "@/lib/costing";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -61,13 +61,70 @@ export async function completeBatchAction(_: unknown, form: FormData) {
   const producedQty = Number(s(form, "produced_qty").replace(",", "."));
   const lotNumber = s(form, "lot_number");
   const expiresOn = s(form, "expires_on");
-  const unitCost = toCents(s(form, "unit_cost"));
+  const manualUnitCost = toCents(s(form, "unit_cost"));
 
   if (!producedQty || producedQty <= 0) return { error: "Informe a quantidade produzida." };
   if (!variantId) return { error: "Selecione a variação produzida." };
 
   const supabase = await createClient();
   const now = new Date().toISOString();
+
+  const { data: recipe } = await supabase
+    .from("recipe_items")
+    .select("raw_material_id, qty_per_unit")
+    .eq("variant_id", variantId);
+
+  let unitCost = manualUnitCost;
+  let insufficientMaterials: string[] = [];
+
+  if (recipe?.length) {
+    const rawMaterialIds = recipe.map((r) => r.raw_material_id);
+    const { data: balances } = await supabase
+      .from("raw_material_movements")
+      .select("raw_material_id, direction, qty")
+      .in("raw_material_id", rawMaterialIds);
+    const balanceById = new Map<string, number>();
+    for (const m of balances ?? []) {
+      const cur = balanceById.get(m.raw_material_id) ?? 0;
+      balanceById.set(m.raw_material_id, cur + (m.direction === "in" ? Number(m.qty) : -Number(m.qty)));
+    }
+
+    const consumptions = recipe.map((r) => ({
+      rawMaterialId: r.raw_material_id,
+      neededQty: r.qty_per_unit * producedQty,
+    }));
+
+    const { data: names } = await supabase
+      .from("raw_materials")
+      .select("id, name")
+      .in("id", rawMaterialIds);
+    const nameById = new Map((names ?? []).map((n) => [n.id, n.name]));
+    insufficientMaterials = consumptions
+      .filter((c) => (balanceById.get(c.rawMaterialId) ?? 0) < c.neededQty)
+      .map((c) => nameById.get(c.rawMaterialId) ?? c.rawMaterialId);
+
+    const { error: consumeError } = await supabase.from("raw_material_movements").insert(
+      consumptions.map((c) => ({
+        raw_material_id: c.rawMaterialId,
+        direction: "out" as const,
+        qty: c.neededQty,
+        unit_cost_cents: 0,
+        production_batch_id: id,
+        reason: "Consumo — lote " + (s(form, "batch_number") || id),
+        occurred_at: now,
+      }))
+    );
+    if (consumeError) return { error: "Não deu pra baixar o insumo: " + consumeError.message };
+
+    const costs = await Promise.all(
+      consumptions.map((c) => recalcRawMaterialCost(profile.org.id, c.rawMaterialId))
+    );
+    const materialsCost = consumptions.reduce(
+      (sum, c, i) => sum + c.neededQty * costs[i].avgCostCents,
+      0
+    );
+    unitCost = Math.round(materialsCost / producedQty);
+  }
 
   const { error: batchError } = await supabase
     .from("production_batches")
@@ -115,7 +172,10 @@ export async function completeBatchAction(_: unknown, form: FormData) {
 
   revalidatePath("/producao");
   revalidatePath("/estoque");
-  return { ok: true };
+  revalidatePath("/insumos");
+  return insufficientMaterials.length
+    ? { ok: true, warning: "Saldo insuficiente de: " + insufficientMaterials.join(", ") }
+    : { ok: true };
 }
 
 export async function createCapacityPlanAction(_: unknown, form: FormData) {

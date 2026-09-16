@@ -98,6 +98,37 @@ export async function toggleVariantAction(form: FormData) {
   revalidatePath(`/produtos/${productId}`);
 }
 
+export async function addRecipeItemAction(_: unknown, form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile) return { error: "Sessão inválida." };
+
+  const productId = s(form, "product_id");
+  const variantId = s(form, "variant_id");
+  const rawMaterialId = s(form, "raw_material_id");
+  const qtyPerUnit = Number(s(form, "qty_per_unit").replace(",", "."));
+  if (!variantId) return { error: "Selecione a variação." };
+  if (!rawMaterialId) return { error: "Selecione o insumo." };
+  if (!qtyPerUnit || qtyPerUnit <= 0) return { error: "Informe a quantidade por unidade." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("recipe_items").upsert(
+    { owner_org_id: profile.org.id, variant_id: variantId, raw_material_id: rawMaterialId, qty_per_unit: qtyPerUnit },
+    { onConflict: "variant_id,raw_material_id" }
+  );
+  if (error) return { error: "Não deu pra salvar: " + error.message };
+
+  revalidatePath(`/produtos/${productId}`);
+  return { ok: true };
+}
+
+export async function removeRecipeItemAction(form: FormData) {
+  const id = s(form, "id");
+  const productId = s(form, "product_id");
+  const supabase = await createClient();
+  await supabase.from("recipe_items").delete().eq("id", id);
+  revalidatePath(`/produtos/${productId}`);
+}
+
 export async function saveCustomValuesAction(form: FormData) {
   const productId = s(form, "product_id");
   const fieldIds = form.getAll("field_id") as string[];

@@ -71,6 +71,22 @@ export async function rawMaterialBalance(rawMaterialId: string) {
   );
 }
 
+export async function listVariantIdsWithRecipe(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase.from("recipe_items").select("variant_id").eq("owner_org_id", orgId);
+  return new Set((data ?? []).map((r) => r.variant_id as string));
+}
+
+export async function listRecipeItems(variantId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("recipe_items")
+    .select("id, raw_material_id, qty_per_unit, raw_materials(name, unit)")
+    .eq("variant_id", variantId)
+    .order("created_at");
+  return data ?? [];
+}
+
 export async function listRawMaterialMovements(rawMaterialId: string, limit = 20) {
   const supabase = await createClient();
   const { data } = await supabase
