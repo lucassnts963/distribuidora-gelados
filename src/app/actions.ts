@@ -99,3 +99,26 @@ export async function decidePartnershipAction(form: FormData) {
     .eq("id", id);
   revalidatePath("/parcerias");
 }
+
+/**
+ * Lead time é dado do lado comprador (quanto tempo MEUS pedidos desse
+ * fornecedor demoram) — só quem compra edita, nunca o fornecedor.
+ */
+export async function setLeadTimeAction(form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile) return;
+
+  const id = s(form, "id");
+  const daysInput = s(form, "lead_time_days");
+  const days = daysInput ? Number(daysInput) : null;
+
+  const supabase = await createClient();
+  await supabase
+    .from("partnerships")
+    .update({ lead_time_days: days !== null && Number.isFinite(days) ? Math.round(days) : null })
+    .eq("id", id)
+    .eq("buyer_org_id", profile.org.id);
+
+  revalidatePath("/parcerias");
+  revalidatePath("/relatorios");
+}

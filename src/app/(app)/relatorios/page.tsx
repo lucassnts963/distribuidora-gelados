@@ -5,6 +5,7 @@ import {
   stockValue,
   listActiveSuppliers,
   supplierAvailableStock,
+  reorderSuggestions,
 } from "@/lib/queries";
 import { Section, Empty, Stat } from "@/components/ui";
 import { monthOf, monthStart, monthEnd, fmtMonth } from "@/lib/format";
@@ -19,11 +20,12 @@ export default async function RelatoriosPage() {
   const from = monthStart(month);
   const to = monthEnd(month);
 
-  const [summary, channels, stock, suppliers] = await Promise.all([
+  const [summary, channels, stock, suppliers, reorders] = await Promise.all([
     periodSummary(profile.org.id, from, to),
     channelBreakdown(profile.org.id, from, to),
     stockValue(profile.org.id),
     listActiveSuppliers(profile.org.id),
+    reorderSuggestions(profile.org.id),
   ]);
 
   const supplierStocks = await Promise.all(
@@ -32,6 +34,7 @@ export default async function RelatoriosPage() {
       return { supplier, stock: await supplierAvailableStock(supplier.id) };
     })
   );
+  const reordersBySupplier = new Map(reorders.map((r) => [r.supplier.id, r]));
 
   return (
     <main>
@@ -65,25 +68,54 @@ export default async function RelatoriosPage() {
 
       {supplierStocks.length > 0 && (
         <Section title="Disponibilidade dos fornecedores">
-          {supplierStocks.map(({ supplier, stock: s }) => (
-            <div key={supplier.id} className="card mb-2 p-3">
-              <div className="mb-2 font-semibold">{supplier.name}</div>
-              {!s.length ? (
-                <p className="text-xs muted">Sem estoque disponível no momento.</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {s.map((item) => (
-                    <li key={item.variant_id} className="flex justify-between">
-                      <span>
-                        {item.product} · {item.name}
-                      </span>
-                      <span className="tabular font-semibold">{item.qty_available}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
+          {supplierStocks.map(({ supplier, stock: s }) => {
+            const reorder = reordersBySupplier.get(supplier.id);
+            return (
+              <div key={supplier.id} className="card mb-2 space-y-3 p-3">
+                <div>
+                  <div className="mb-2 font-semibold">{supplier.name}</div>
+                  {!s.length ? (
+                    <p className="text-xs muted">Sem estoque disponível no momento.</p>
+                  ) : (
+                    <ul className="space-y-1 text-sm">
+                      {s.map((item) => (
+                        <li key={item.variant_id} className="flex justify-between">
+                          <span>
+                            {item.product} · {item.name}
+                          </span>
+                          <span className="tabular font-semibold">{item.qty_available}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {reorder && (
+                  <div className="border-t border-stone-200 pt-2">
+                    <div className="mb-1 text-xs font-semibold muted">
+                      Sugestão de reposição (lead time: {reorder.leadTimeDays} dia(s))
+                    </div>
+                    <ul className="space-y-1 text-sm">
+                      {reorder.items.map((item) => (
+                        <li key={item.variantId} className="flex items-center justify-between gap-2">
+                          <span>
+                            {item.product} · {item.name}
+                            <span className="ml-1 text-xs muted">
+                              ({item.avgDaily.toFixed(1)}/dia)
+                            </span>
+                          </span>
+                          <span
+                            className={`tabular font-semibold ${item.belowReorderPoint ? "text-amber-600" : ""}`}
+                          >
+                            {item.currentStock} / {Math.ceil(item.reorderPoint)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </Section>
       )}
 

@@ -272,6 +272,80 @@ export async function supplierAvailableStock(supplierOrgId: string): Promise<Ava
   }));
 }
 
+async function salesQtyByVariant(orgId: string, days: number) {
+  const supabase = await createClient();
+  const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from("inventory_movements")
+    .select("variant_id, qty")
+    .eq("org_id", orgId)
+    .eq("movement_type", "sale")
+    .gte("occurred_on", from);
+
+  const byVariant = new Map<string, number>();
+  for (const m of data ?? []) {
+    const key = m.variant_id as string;
+    byVariant.set(key, (byVariant.get(key) ?? 0) + Math.abs(Number(m.qty)));
+  }
+  return byVariant;
+}
+
+/**
+ * Sugestão de reposição por fornecedor parceiro: demanda média diária
+ * (últimos 30 dias) × lead time da parceria = ponto de reposição. Só
+ * aparece pra parcerias com lead_time_days definido (opt-in) e variações
+ * com demanda real — sem histórico de venda não dá pra sugerir nada.
+ */
+export async function reorderSuggestions(orgId: string) {
+  const supabase = await createClient();
+  const DAYS = 30;
+
+  const { data: partnerships } = await supabase
+    .from("partnerships")
+    .select("id, lead_time_days, supplier:organizations!supplier_org_id(id, name)")
+    .eq("buyer_org_id", orgId)
+    .eq("status", "active")
+    .not("lead_time_days", "is", null);
+  if (!partnerships?.length) return [];
+
+  const [demandByVariant, myStock] = await Promise.all([salesQtyByVariant(orgId, DAYS), orgStock(orgId)]);
+  const stockByVariant = new Map(myStock.map((s) => [s.variantId, s.qty]));
+
+  const result: {
+    supplier: { id: string; name: string };
+    leadTimeDays: number;
+    items: { variantId: string; name: string; product: string; avgDaily: number; reorderPoint: number; currentStock: number; belowReorderPoint: boolean }[];
+  }[] = [];
+
+  for (const p of partnerships) {
+    const supplier = p.supplier as unknown as { id: string; name: string };
+    const leadTimeDays = p.lead_time_days as number;
+    const available = await supplierAvailableStock(supplier.id);
+
+    const items = available
+      .map((item) => {
+        const avgDaily = (demandByVariant.get(item.variant_id) ?? 0) / DAYS;
+        if (avgDaily <= 0) return null;
+        const reorderPoint = avgDaily * leadTimeDays;
+        const currentStock = stockByVariant.get(item.variant_id) ?? 0;
+        return {
+          variantId: item.variant_id,
+          name: item.name,
+          product: item.product,
+          avgDaily,
+          reorderPoint,
+          currentStock,
+          belowReorderPoint: currentStock < reorderPoint,
+        };
+      })
+      .filter((i): i is NonNullable<typeof i> => i !== null);
+
+    if (items.length) result.push({ supplier, leadTimeDays, items });
+  }
+
+  return result;
+}
+
 export async function listExternalPurchases(orgId: string, limit = 20) {
   const supabase = await createClient();
   const { data } = await supabase

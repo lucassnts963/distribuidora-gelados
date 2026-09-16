@@ -1,7 +1,8 @@
 import { getSessionProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Section, Empty } from "@/components/ui";
-import { decidePartnershipAction } from "@/app/actions";
+import { SubmitButton } from "@/components/SubmitButton";
+import { decidePartnershipAction, setLeadTimeAction } from "@/app/actions";
 import { PartnershipForm } from "./PartnershipForm";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export default async function ParceriasPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("partnerships")
-      .select("id, status, created_at, supplier:organizations!supplier_org_id(id, name)")
+      .select("id, status, created_at, lead_time_days, supplier:organizations!supplier_org_id(id, name)")
       .eq("buyer_org_id", profile.org.id)
       .order("created_at", { ascending: false }),
   ]);
@@ -89,16 +90,33 @@ export default async function ParceriasPage() {
             {asBuyer.map((row) => {
               const supplier = row.supplier as unknown as { id: string; name: string } | null;
               return (
-                <li key={row.id} className="card flex items-center justify-between gap-2 p-3">
-                  <div>
-                    <div className="font-semibold">{supplier?.name ?? "—"}</div>
-                    <StatusChip status={row.status} />
+                <li key={row.id} className="card space-y-2 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-semibold">{supplier?.name ?? "—"}</div>
+                      <StatusChip status={row.status} />
+                    </div>
+                    {row.status !== "revoked" && (
+                      <form action={decidePartnershipAction}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <input type="hidden" name="status" value="revoked" />
+                        <button className="btn-ghost">Cancelar</button>
+                      </form>
+                    )}
                   </div>
-                  {row.status !== "revoked" && (
-                    <form action={decidePartnershipAction}>
+                  {row.status === "active" && (
+                    <form action={setLeadTimeAction} className="flex items-center gap-2">
                       <input type="hidden" name="id" value={row.id} />
-                      <input type="hidden" name="status" value="revoked" />
-                      <button className="btn-ghost">Cancelar</button>
+                      <input
+                        name="lead_time_days"
+                        className="inp"
+                        inputMode="numeric"
+                        placeholder="Lead time (dias)"
+                        defaultValue={row.lead_time_days ?? ""}
+                      />
+                      <SubmitButton className="btn-ghost shrink-0" pendingText="...">
+                        Salvar
+                      </SubmitButton>
                     </form>
                   )}
                 </li>
