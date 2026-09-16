@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { X } from "lucide-react";
 
 export function Modal({
   triggerLabel,
@@ -27,7 +28,7 @@ export function Modal({
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-bold uppercase tracking-wide text-stone-500">{title}</h3>
             <button type="button" className="text-stone-400" onClick={() => ref.current?.close()}>
-              ✕
+              <X className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
             </button>
           </div>
           {children}

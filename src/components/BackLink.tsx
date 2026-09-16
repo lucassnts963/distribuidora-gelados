@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 
 /**
  * Sub-páginas precisam de volta explícita: instalado como PWA o app roda em
@@ -10,7 +11,7 @@ export function BackLink({ href, label }: { href: string; label: string }) {
       href={href}
       className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-stone-500 hover:text-brand-600"
     >
-      <span aria-hidden>←</span> {label}
+      <ChevronLeft className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" /> {label}
     </Link>
   );
 }

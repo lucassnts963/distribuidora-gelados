@@ -2,7 +2,9 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
 import { GiroMark } from "@/components/GiroMark";
+import { MODULES, moduleByHref, type ModuleGroup } from "@/lib/modules";
 
 type Capabilities = {
   hasOwnProducts: boolean;
@@ -10,21 +12,19 @@ type Capabilities = {
   buyerPartnerCount: number;
 };
 
-type Item = { href: string; label: string; icon: string; show: boolean };
-
 function PendingDot() {
   const { pending } = useLinkStatus();
   if (!pending) return null;
   return <span className="h-2 w-2 shrink-0 animate-ping rounded-full bg-brand-500" />;
 }
 
-function BottomIcon({ icon }: { icon: string }) {
+function BottomIcon({ Icon }: { Icon: LucideIcon }) {
   const { pending } = useLinkStatus();
   return (
-    <span className="relative text-lg leading-none">
-      {icon}
+    <span className="relative flex">
+      <Icon className="h-5 w-5" strokeWidth={2} />
       {pending && (
-        <span className="absolute -right-1.5 -top-1.5 h-2 w-2 animate-ping rounded-full bg-brand-500" />
+        <span className="absolute -right-1 -top-1 h-2 w-2 animate-ping rounded-full bg-brand-500" />
       )}
     </span>
   );
@@ -34,6 +34,10 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
+const painel = moduleByHref("/");
+const config = moduleByHref("/config");
+const GROUP_ORDER: ModuleGroup[] = ["Rede", "Produção", "Comercial"];
+
 export default function Nav({ capabilities }: { capabilities: Capabilities }) {
   const pathname = usePathname();
   const canSell = capabilities.hasOwnProducts || capabilities.buyerPartnerCount > 0;
@@ -42,53 +46,22 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
   // triagem de espaço. A sidebar não filtra: esconder Produção e Insumos de
   // quem ainda não tem produto esconderia justamente o caminho de virar
   // fabricante, e o Painel já lista todos os módulos sem filtro nenhum.
-  const bottomItems: Item[] = [
-    { href: "/", label: "Painel", icon: "◎", show: true },
-    { href: "/producao", label: "Produção", icon: "⚙", show: capabilities.hasOwnProducts },
-    { href: "/estoque", label: "Estoque", icon: "▦", show: canSell },
-    { href: "/vendas", label: "Vendas", icon: "↗", show: canSell },
-    { href: "/config", label: "Config", icon: "☰", show: true },
-  ].filter((it) => it.show);
+  const bottomShow: Record<string, boolean> = {
+    "/": true,
+    "/producao": capabilities.hasOwnProducts,
+    "/estoque": canSell,
+    "/vendas": canSell,
+    "/config": true,
+  };
+  const bottomItems = Object.keys(bottomShow)
+    .filter((href) => bottomShow[href])
+    .map((href) => moduleByHref(href));
 
-  const groups: { title: string | null; items: Item[] }[] = [
-    {
-      title: null,
-      items: [{ href: "/", label: "Painel", icon: "◎", show: true }],
-    },
-    {
-      title: "Rede",
-      items: [
-        { href: "/parcerias", label: "Parcerias", icon: "⇄", show: true },
-        { href: "/pedidos", label: "Pedidos", icon: "↘", show: true },
-      ],
-    },
-    {
-      title: "Produção",
-      items: [
-        { href: "/produtos", label: "Produtos", icon: "📦", show: true },
-        { href: "/insumos", label: "Insumos", icon: "🧪", show: true },
-        { href: "/producao", label: "Produção", icon: "⚙️", show: true },
-        { href: "/estoque", label: "Estoque", icon: "▦", show: true },
-      ],
-    },
-    {
-      title: "Comercial",
-      items: [
-        { href: "/vendas", label: "Vendas", icon: "💰", show: true },
-        { href: "/compras", label: "Compras", icon: "🧾", show: true },
-        { href: "/contatos", label: "Contatos", icon: "👥", show: true },
-        { href: "/precos", label: "Preços", icon: "🏷️", show: true },
-        { href: "/despesas", label: "Despesas", icon: "📉", show: true },
-        { href: "/relatorios", label: "Relatórios", icon: "📊", show: true },
-      ],
-    },
-    {
-      title: null,
-      items: [{ href: "/config", label: "Config", icon: "☰", show: true }],
-    },
-  ]
-    .map((g) => ({ ...g, items: g.items.filter((it) => it.show) }))
-    .filter((g) => g.items.length > 0);
+  const groups = [
+    { title: null, items: [painel] },
+    ...GROUP_ORDER.map((title) => ({ title, items: MODULES.filter((m) => m.group === title) })),
+    { title: null, items: [config] },
+  ];
 
   return (
     <>
@@ -115,7 +88,7 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
                         className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-semibold transition-colors
                           ${active ? "bg-brand-50 text-brand-700" : "text-stone-600 hover:bg-stone-100"}`}
                       >
-                        <span className="w-5 shrink-0 text-center text-base leading-none">{it.icon}</span>
+                        <it.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
                         <span className="flex-1 truncate">{it.label}</span>
                         <PendingDot />
                       </Link>
@@ -143,7 +116,7 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
                     active:opacity-60
                     ${active ? "text-brand-600" : "text-stone-400"}`}
                 >
-                  <BottomIcon icon={it.icon} />
+                  <BottomIcon Icon={it.icon} />
                   {it.label}
                 </Link>
               </li>

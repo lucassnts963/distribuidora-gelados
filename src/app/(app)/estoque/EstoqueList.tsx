@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Section, Empty } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { fmtDate } from "@/lib/format";
+import { ArrowRight } from "lucide-react";
 import { advanceLotStageAction } from "./actions";
 
 type StockRow = { variantId: string; name: string; product: string; qty: number };
@@ -95,8 +96,8 @@ export function EstoqueList({ stock, lots }: { stock: StockRow[]; lots: LotRow[]
                       <form action={advanceLotStageAction}>
                         <input type="hidden" name="lot_id" value={l.id} />
                         <input type="hidden" name="current_stage" value={l.stageKey} />
-                        <SubmitButton className="btn-ghost" pendingText="Avançando…">
-                          Avançar para {l.nextLabel} →
+                        <SubmitButton className="btn-ghost inline-flex items-center gap-1" pendingText="Avançando…">
+                          Avançar para {l.nextLabel} <ArrowRight className="h-4 w-4" strokeWidth={2} />
                         </SubmitButton>
                       </form>
                     )}

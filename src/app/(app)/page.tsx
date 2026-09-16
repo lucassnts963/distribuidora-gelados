@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { getSessionProfile } from "@/lib/auth";
 import { Section, Empty, Stat } from "@/components/ui";
+import { MODULES, type ModuleGroup } from "@/lib/modules";
 
 export const dynamic = "force-dynamic";
+
+const GROUP_ORDER: ModuleGroup[] = ["Rede", "Produção", "Comercial"];
 
 export default async function PainelPage() {
   const profile = await getSessionProfile();
@@ -23,80 +26,19 @@ export default async function PainelPage() {
         </div>
       </Section>
 
-      <Section title="Rede">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-          <Link href="/parcerias" className="card p-4">
-            <div className="text-2xl">⇄</div>
-            <div className="mt-1 font-semibold">Parcerias</div>
-            <div className="text-xs muted">Propor, aceitar, código de convite</div>
-          </Link>
-          <Link href="/pedidos" className="card p-4">
-            <div className="text-2xl">↘</div>
-            <div className="mt-1 font-semibold">Pedidos</div>
-            <div className="text-xs muted">Recebidos e feitos, entre organizações</div>
-          </Link>
-        </div>
-      </Section>
-
-      <Section title="Produção">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-          <Link href="/produtos" className="card p-4">
-            <div className="text-2xl">📦</div>
-            <div className="mt-1 font-semibold">Produtos</div>
-            <div className="text-xs muted">Cadastro e campos personalizados</div>
-          </Link>
-          <Link href="/insumos" className="card p-4">
-            <div className="text-2xl">🧪</div>
-            <div className="mt-1 font-semibold">Insumos</div>
-            <div className="text-xs muted">Entrada e saída de matéria-prima</div>
-          </Link>
-          <Link href="/producao" className="card p-4">
-            <div className="text-2xl">⚙️</div>
-            <div className="mt-1 font-semibold">Produção</div>
-            <div className="text-xs muted">Lotes e capacidade produtiva</div>
-          </Link>
-          <Link href="/estoque" className="card p-4">
-            <div className="text-2xl">▦</div>
-            <div className="mt-1 font-semibold">Estoque</div>
-            <div className="text-xs muted">Saldo, validade e etapas</div>
-          </Link>
-        </div>
-      </Section>
-
-      <Section title="Comercial">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-          <Link href="/vendas" className="card p-4">
-            <div className="text-2xl">💰</div>
-            <div className="mt-1 font-semibold">Vendas</div>
-            <div className="text-xs muted">Contato ou avulsa, atacado/varejo</div>
-          </Link>
-          <Link href="/compras" className="card p-4">
-            <div className="text-2xl">🧾</div>
-            <div className="mt-1 font-semibold">Compras</div>
-            <div className="text-xs muted">Entrada fora da cadeia</div>
-          </Link>
-          <Link href="/contatos" className="card p-4">
-            <div className="text-2xl">👥</div>
-            <div className="mt-1 font-semibold">Contatos</div>
-            <div className="text-xs muted">Clientes sem login no sistema</div>
-          </Link>
-          <Link href="/precos" className="card p-4">
-            <div className="text-2xl">🏷️</div>
-            <div className="mt-1 font-semibold">Preços</div>
-            <div className="text-xs muted">Atacado e varejo por variação</div>
-          </Link>
-          <Link href="/despesas" className="card p-4">
-            <div className="text-2xl">📉</div>
-            <div className="mt-1 font-semibold">Despesas</div>
-            <div className="text-xs muted">Custos fora do estoque</div>
-          </Link>
-          <Link href="/relatorios" className="card p-4">
-            <div className="text-2xl">📊</div>
-            <div className="mt-1 font-semibold">Relatórios</div>
-            <div className="text-xs muted">Resumo do mês, caixa e canais</div>
-          </Link>
-        </div>
-      </Section>
+      {GROUP_ORDER.map((group) => (
+        <Section key={group} title={group}>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+            {MODULES.filter((m) => m.group === group).map((m) => (
+              <Link key={m.href} href={m.href} className="card p-4">
+                <m.icon className="h-6 w-6 text-brand-600" strokeWidth={2} />
+                <div className="mt-1 font-semibold">{m.label}</div>
+                <div className="text-xs muted">{m.description}</div>
+              </Link>
+            ))}
+          </div>
+        </Section>
+      ))}
 
       {!capabilities.hasOwnProducts &&
         capabilities.supplierPartnerCount === 0 &&
