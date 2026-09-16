@@ -45,10 +45,11 @@ export default async function PainelPage() {
         capabilities.buyerPartnerCount === 0 && (
           <Section title="Próximos passos">
             <Empty>
-              Comece cadastrando um produto em <span className="font-semibold text-brand-600">Produtos</span>{" "}
-              (se você fabrica algo), ou propondo uma parceria em{" "}
-              <span className="font-semibold text-brand-600">Parcerias</span> (se você compra ou vende de
-              alguém que já usa o sistema).
+              Ainda não tem produto nem parceria cadastrados. Veja o checklist em{" "}
+              <Link href="/ajuda" className="font-semibold text-brand-600">
+                Ajuda
+              </Link>{" "}
+              pra saber por onde começar.
             </Empty>
           </Section>
         )}

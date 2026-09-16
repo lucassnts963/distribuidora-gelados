@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   Bell,
+  CircleHelp,
 } from "lucide-react";
 
 export type ModuleGroup = "Rede" | "Produção" | "Comercial";
@@ -49,6 +50,7 @@ export const MODULES: AppModule[] = [
   { href: "/despesas", label: "Despesas", description: "Custos fora do estoque", icon: TrendingDown, group: "Comercial" },
   { href: "/relatorios", label: "Relatórios", description: "Resumo do mês, caixa e canais", icon: BarChart3, group: "Comercial" },
   { href: "/config", label: "Config", description: "", icon: Settings, group: null },
+  { href: "/ajuda", label: "Ajuda", description: "Passo a passo e como o sistema funciona", icon: CircleHelp, group: null },
 ];
 
 export function moduleByHref(href: string): AppModule {

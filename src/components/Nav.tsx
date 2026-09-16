@@ -48,6 +48,7 @@ function isActive(pathname: string, href: string) {
 const painel = moduleByHref("/");
 const avisos = moduleByHref("/notificacoes");
 const config = moduleByHref("/config");
+const ajuda = moduleByHref("/ajuda");
 const GROUP_ORDER: ModuleGroup[] = ["Rede", "Produção", "Comercial"];
 
 export default function Nav({
@@ -80,7 +81,7 @@ export default function Nav({
   const groups = [
     { title: null, items: [painel, avisos] },
     ...GROUP_ORDER.map((title) => ({ title, items: MODULES.filter((m) => m.group === title) })),
-    { title: null, items: [config] },
+    { title: null, items: [config, ajuda] },
   ];
 
   return (
