@@ -46,6 +46,37 @@ npm run dev                # http://localhost:3000
 npm run seed               # opcional: cria Laranjinha e Cremosinho com sabores comuns
 ```
 
+## Rodando com Docker Compose
+
+```bash
+cp .env.example .env       # troque a APP_PASSWORD
+docker compose up -d --build
+```
+
+O `docker-compose.yml` builda a imagem (build multi-stage, `next build` com
+`output: standalone`), expõe a porta `3000` (ou `${PORT}` do `.env`) e guarda
+o banco SQLite no volume nomeado `gelados_data`, montado em `/app/data`
+dentro do container — sobrevive a `docker compose down` e a rebuilds.
+
+```bash
+docker compose logs -f       # acompanhar
+docker compose down          # parar (o volume gelados_data continua existindo)
+```
+
+### Backup (com Docker)
+
+O container já tem o `sqlite3` instalado. Faça o backup de dentro dele,
+nunca copiando o arquivo do volume por fora (o modo WAL tem arquivos
+auxiliares abertos):
+
+```bash
+docker compose exec gelados sqlite3 /app/data/gelados.db \
+  ".backup '/app/data/backup-$(date +%F).db'"
+docker cp gelados:/app/data/backup-$(date +%F).db ./backup-$(date +%F).db
+```
+
+Coloque isso num cron diário. Um freezer queima; um HD também.
+
 ## Rodando na sua VPS
 
 ```bash

@@ -1,0 +1,16 @@
+services:
+  gelados:
+    build: .
+    container_name: gelados
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      APP_PASSWORD: ${APP_PASSWORD:?defina APP_PASSWORD no .env}
+      DATABASE_PATH: /app/data/gelados.db
+      PORT: 3000
+    volumes:
+      - gelados_data:/app/data
+
+volumes:
+  gelados_data:
