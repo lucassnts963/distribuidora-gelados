@@ -1,15 +1,27 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { proposePartnershipAction } from "@/app/actions";
+import { ScanQRButton } from "./ScanQRButton";
 
 export function PartnershipForm() {
   const [state, action, pending] = useActionState(proposePartnershipAction, null);
+  const [inviteCode, setInviteCode] = useState("");
   return (
     <form action={action} className="card space-y-4 p-4">
       <div>
         <label className="lbl">Código de convite do parceiro</label>
-        <input name="invite_code" className="inp" required placeholder="ex: a1b2c3d4" />
+        <input
+          name="invite_code"
+          className="inp"
+          required
+          placeholder="ex: a1b2c3d4"
+          value={inviteCode}
+          onChange={(e) => setInviteCode(e.target.value)}
+        />
+        <div className="mt-2">
+          <ScanQRButton onDecode={setInviteCode} />
+        </div>
       </div>
       <div>
         <label className="lbl">Qual é a relação?</label>

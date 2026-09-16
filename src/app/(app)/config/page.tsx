@@ -9,6 +9,7 @@ import { CommissionForm } from "./CommissionForm";
 import { LogoUploadForm } from "./LogoUploadForm";
 import { CatalogSlugForm } from "./CatalogSlugForm";
 import { LoyaltySettingsForm } from "./LoyaltySettingsForm";
+import { InviteQRCode } from "./InviteQRCode";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,13 @@ export default async function ConfigPage() {
           <div>
             <span className="muted">Código de convite:</span>{" "}
             <span className="chip font-mono">{profile.org.inviteCode}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <InviteQRCode inviteCode={profile.org.inviteCode} />
+            <p className="text-xs muted">
+              Mostre esse QR code pra quem for propor parceria com você — evita digitar o
+              código errado.
+            </p>
           </div>
         </div>
         {profile.role === "admin" && (
