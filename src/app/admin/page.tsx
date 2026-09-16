@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { isSuperAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SubmitButton } from "@/components/SubmitButton";
+import { Modal } from "@/components/Modal";
 import { toggleOrgAccessAction } from "./actions";
+import { TransferOrgForm } from "./TransferOrgForm";
 
 export const dynamic = "force-dynamic";
 
@@ -45,13 +47,18 @@ export default async function AdminPage() {
                 {org.memberCount === 1 ? "membro" : "membros"} · plano {org.plan}
               </div>
             </div>
-            <form action={toggleOrgAccessAction} className="shrink-0">
-              <input type="hidden" name="id" value={org.id} />
-              <input type="hidden" name="active" value={String(!org.active)} />
-              <SubmitButton className={org.active ? "btn-danger" : "btn-primary"} pendingText="...">
-                {org.active ? "Desativar" : "Ativar"}
-              </SubmitButton>
-            </form>
+            <div className="flex shrink-0 gap-2">
+              <Modal triggerLabel="Transferir" triggerClassName="btn-ghost" title={`Transferir "${org.name}"`}>
+                <TransferOrgForm orgId={org.id} memberCount={org.memberCount} />
+              </Modal>
+              <form action={toggleOrgAccessAction}>
+                <input type="hidden" name="id" value={org.id} />
+                <input type="hidden" name="active" value={String(!org.active)} />
+                <SubmitButton className={org.active ? "btn-danger" : "btn-primary"} pendingText="...">
+                  {org.active ? "Desativar" : "Ativar"}
+                </SubmitButton>
+              </form>
+            </div>
           </div>
         ))}
         {orgs.length === 0 && <div className="p-4 text-sm muted">Nenhuma organização ainda.</div>}
