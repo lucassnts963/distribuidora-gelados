@@ -23,6 +23,21 @@ export default async function PainelPage() {
         </div>
       </Section>
 
+      <Section title="Rede">
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/parcerias" className="card p-4">
+            <div className="text-2xl">⇄</div>
+            <div className="mt-1 font-semibold">Parcerias</div>
+            <div className="text-xs muted">Propor, aceitar, código de convite</div>
+          </Link>
+          <Link href="/pedidos" className="card p-4">
+            <div className="text-2xl">↘</div>
+            <div className="mt-1 font-semibold">Pedidos</div>
+            <div className="text-xs muted">Recebidos e feitos, entre organizações</div>
+          </Link>
+        </div>
+      </Section>
+
       <Section title="Produção">
         <div className="grid grid-cols-2 gap-3">
           <Link href="/produtos" className="card p-4">

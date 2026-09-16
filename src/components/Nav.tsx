@@ -14,12 +14,14 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
 
   const canSell = capabilities.hasOwnProducts || capabilities.buyerPartnerCount > 0;
 
+  // Só as abas de uso mais frequente ficam na nav fixa — o resto (Parcerias,
+  // Pedidos, Produtos, Insumos, Contatos, Preços, Compras, Despesas,
+  // Relatórios) sempre tem atalho no Painel, pra não lotar a barra.
   const items = [
     { href: "/", label: "Painel", icon: "◎", show: true },
     { href: "/producao", label: "Produção", icon: "⚙", show: capabilities.hasOwnProducts },
     { href: "/estoque", label: "Estoque", icon: "▦", show: canSell },
     { href: "/vendas", label: "Vendas", icon: "↗", show: canSell },
-    { href: "/parcerias", label: "Parcerias", icon: "⇄", show: true },
     { href: "/config", label: "Config", icon: "☰", show: true },
   ].filter((it) => it.show);
 

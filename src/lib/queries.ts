@@ -221,6 +221,31 @@ export async function listSales(orgId: string, limit = 20) {
   return data ?? [];
 }
 
+export async function listReceivedOrders(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select(
+      "id, status, channel, total_cents, created_at, buyer:organizations!buyer_org_id(id, name), contact:contacts(name), order_items(variant_id, qty, unit_price_cents, product_variants(name))"
+    )
+    .eq("supplier_org_id", orgId)
+    .not("buyer_org_id", "is", null)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function listPlacedOrders(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select(
+      "id, status, channel, total_cents, created_at, supplier:organizations!supplier_org_id(id, name), order_items(variant_id, qty, unit_price_cents, product_variants(name))"
+    )
+    .eq("buyer_org_id", orgId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
 export async function listExpenses(orgId: string, limit = 20) {
   const supabase = await createClient();
   const { data } = await supabase
