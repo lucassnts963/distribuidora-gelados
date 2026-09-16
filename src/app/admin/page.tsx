@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { isSuperAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SubmitButton } from "@/components/SubmitButton";
 import { toggleOrgAccessAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -47,12 +48,9 @@ export default async function AdminPage() {
             <form action={toggleOrgAccessAction} className="shrink-0">
               <input type="hidden" name="id" value={org.id} />
               <input type="hidden" name="active" value={String(!org.active)} />
-              <button
-                className={org.active ? "btn-danger" : "btn-primary"}
-                type="submit"
-              >
+              <SubmitButton className={org.active ? "btn-danger" : "btn-primary"} pendingText="...">
                 {org.active ? "Desativar" : "Ativar"}
-              </button>
+              </SubmitButton>
             </form>
           </div>
         ))}

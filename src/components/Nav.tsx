@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 
 type Capabilities = {
@@ -8,6 +8,18 @@ type Capabilities = {
   supplierPartnerCount: number;
   buyerPartnerCount: number;
 };
+
+function NavIcon({ icon }: { icon: string }) {
+  const { pending } = useLinkStatus();
+  return (
+    <span className="relative text-lg leading-none">
+      {icon}
+      {pending && (
+        <span className="absolute -right-1.5 -top-1.5 h-2 w-2 animate-ping rounded-full bg-brand-500" />
+      )}
+    </span>
+  );
+}
 
 export default function Nav({ capabilities }: { capabilities: Capabilities }) {
   const p = usePathname();
@@ -38,9 +50,10 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
               <Link
                 href={it.href}
                 className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold
+                  active:opacity-60
                   ${active ? "text-brand-600" : "text-stone-400"}`}
               >
-                <span className="text-lg leading-none">{it.icon}</span>
+                <NavIcon icon={it.icon} />
                 {it.label}
               </Link>
             </li>

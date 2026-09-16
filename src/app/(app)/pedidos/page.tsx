@@ -7,6 +7,7 @@ import {
   listOrgPrices,
 } from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import {
   acceptOrderAction,
   startPickingAction,
@@ -76,32 +77,36 @@ export default async function PedidosPage() {
                       <>
                         <form action={acceptOrderAction}>
                           <input type="hidden" name="id" value={o.id} />
-                          <button className="btn-primary">Aceitar</button>
+                          <SubmitButton pendingText="Aceitando…">Aceitar</SubmitButton>
                         </form>
                         <form action={cancelOrderAction}>
                           <input type="hidden" name="id" value={o.id} />
-                          <button className="btn-ghost">Recusar</button>
+                          <SubmitButton className="btn-ghost" pendingText="Recusando…">
+                            Recusar
+                          </SubmitButton>
                         </form>
                       </>
                     )}
                     {o.status === "accepted" && (
                       <form action={startPickingAction}>
                         <input type="hidden" name="id" value={o.id} />
-                        <button className="btn-primary">Iniciar separação</button>
+                        <SubmitButton pendingText="Iniciando…">Iniciar separação</SubmitButton>
                       </form>
                     )}
                     {(o.status === "accepted" || o.status === "picking") && (
                       <form action={shipOrderAction}>
                         <input type="hidden" name="id" value={o.id} />
-                        <button className="btn-primary">
+                        <SubmitButton pendingText="Despachando…">
                           {buyer ? "Despachar" : "Marcar como entregue"}
-                        </button>
+                        </SubmitButton>
                       </form>
                     )}
                     {["requested", "accepted", "picking"].includes(o.status) && (
                       <form action={cancelOrderAction}>
                         <input type="hidden" name="id" value={o.id} />
-                        <button className="btn-ghost">Cancelar</button>
+                        <SubmitButton className="btn-ghost" pendingText="Cancelando…">
+                          Cancelar
+                        </SubmitButton>
                       </form>
                     )}
                   </div>
@@ -131,7 +136,9 @@ export default async function PedidosPage() {
                   {o.status === "shipped" && (
                     <form action={confirmReceiptAction}>
                       <input type="hidden" name="id" value={o.id} />
-                      <button className="btn-primary w-full">Confirmar recebimento</button>
+                      <SubmitButton className="btn-primary w-full" pendingText="Confirmando…">
+                        Confirmar recebimento
+                      </SubmitButton>
                     </form>
                   )}
                 </li>

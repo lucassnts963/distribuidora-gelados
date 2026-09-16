@@ -1,6 +1,7 @@
 import { getSessionProfile } from "@/lib/auth";
 import { orgStock, listOrgPrices } from "@/lib/queries";
 import { Section, Empty } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { savePriceAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export default async function PrecosPage() {
                       placeholder="Varejo (R$)"
                       defaultValue={price?.retail_cents ? (price.retail_cents / 100).toFixed(2) : ""}
                     />
-                    <button className="btn-primary">Salvar</button>
+                    <SubmitButton pendingText="Salvando…">Salvar</SubmitButton>
                   </form>
                 </li>
               );

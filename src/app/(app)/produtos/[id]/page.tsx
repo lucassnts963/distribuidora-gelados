@@ -1,6 +1,7 @@
 import { getSessionProfile } from "@/lib/auth";
 import { getProduct, listCustomFields, listRawMaterials, listRecipeItems } from "@/lib/queries";
 import { Section, Empty } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { toggleVariantAction } from "../actions";
 import { AddVariantForm } from "./AddVariantForm";
 import { CustomValuesForm } from "./CustomValuesForm";
@@ -46,9 +47,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                     <input type="hidden" name="id" value={v.id} />
                     <input type="hidden" name="product_id" value={product.id} />
                     <input type="hidden" name="active" value={String(v.active)} />
-                    <button className={v.active ? "btn-ghost" : "btn-primary"}>
+                    <SubmitButton className={v.active ? "btn-ghost" : "btn-primary"} pendingText="...">
                       {v.active ? "Desativar" : "Ativar"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
                 <RecipeForm
