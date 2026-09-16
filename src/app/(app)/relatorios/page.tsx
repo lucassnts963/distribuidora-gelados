@@ -40,8 +40,15 @@ export default async function RelatoriosPage() {
 
   return (
     <main>
-      <h1 className="h1">Relatórios</h1>
-      <p className="text-sm muted">Mês atual ({fmtMonth(month)})</p>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h1 className="h1">Relatórios</h1>
+          <p className="text-sm muted">Mês atual ({fmtMonth(month)})</p>
+        </div>
+        <a href={`/relatorios/export?month=${month}`} className="btn-ghost shrink-0 text-sm">
+          Exportar CSV
+        </a>
+      </div>
 
       <Section title="Resumo do mês">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">

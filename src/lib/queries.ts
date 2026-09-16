@@ -369,6 +369,22 @@ export async function listSales(orgId: string, limit = 20) {
   return data ?? [];
 }
 
+/** Vendas do período com detalhe pra export — mesmo filtro de listSales, sem limit, com mais colunas. */
+export async function listSalesDetailed(orgId: string, from: string, to: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select(
+      "id, created_at, channel, total_cents, commission_cents, fee_cents, contact:contacts(name), payment_method:payment_methods(name)"
+    )
+    .eq("supplier_org_id", orgId)
+    .eq("status", "delivered")
+    .gte("created_at", from)
+    .lte("created_at", to + "T23:59:59")
+    .order("created_at", { ascending: true });
+  return data ?? [];
+}
+
 export async function listReceivedOrders(orgId: string) {
   const supabase = await createClient();
   const { data } = await supabase
