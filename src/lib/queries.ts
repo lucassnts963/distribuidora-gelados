@@ -163,6 +163,16 @@ export async function listOrgPrices(orgId: string) {
   return new Map((data ?? []).map((p) => [p.variant_id as string, p]));
 }
 
+/** Custo médio vigente por variação (pra alertar se o preço de venda ficar abaixo do custo). */
+export async function listVariantCosts(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("variant_costs")
+    .select("variant_id, avg_cost_cents")
+    .eq("org_id", orgId);
+  return new Map((data ?? []).map((c) => [c.variant_id as string, c.avg_cost_cents as number]));
+}
+
 export async function listActiveSuppliers(orgId: string) {
   const supabase = await createClient();
   const { data } = await supabase

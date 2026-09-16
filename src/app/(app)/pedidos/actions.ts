@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
-import { parseItems } from "@/lib/formItems";
 import { shipOrder, confirmReceipt } from "@/lib/orders";
 
 function s(form: FormData, key: string) {
@@ -15,12 +14,40 @@ export async function createOrderAction(_: unknown, form: FormData) {
   if (!profile) return { error: "Sessão inválida." };
 
   const supplierOrgId = s(form, "supplier_org_id");
-  const channel = s(form, "channel") || "retail";
-  const items = parseItems(form, "unit_price");
+  const channel = s(form, "channel") || "wholesale";
+  // qty[] vem do form; preço nunca vem do comprador — é buscado abaixo na
+  // tabela de preços do próprio fornecedor, pro canal escolhido.
+  const variantIds = form.getAll("variant_id[]") as string[];
+  const qtys = form.getAll("qty[]") as string[];
+  const rawItems: { variantId: string; qty: number }[] = [];
+  for (let i = 0; i < variantIds.length; i++) {
+    const qty = Number(String(qtys[i] ?? "").replace(",", "."));
+    if (!variantIds[i] || !qty) continue;
+    rawItems.push({ variantId: variantIds[i], qty });
+  }
   if (!supplierOrgId) return { error: "Selecione o fornecedor." };
-  if (!items.length) return { error: "Adicione ao menos um item." };
+  if (!rawItems.length) return { error: "Adicione ao menos um item." };
 
   const supabase = await createClient();
+
+  const { data: prices, error: pricesError } = await supabase
+    .from("org_variant_prices")
+    .select("variant_id, wholesale_cents, retail_cents")
+    .eq("org_id", supplierOrgId)
+    .in("variant_id", rawItems.map((i) => i.variantId));
+  if (pricesError) return { error: "Não deu pra ler os preços do fornecedor: " + pricesError.message };
+
+  const priceByVariant = new Map(prices?.map((p) => [p.variant_id, p]) ?? []);
+  const items: { variantId: string; qty: number; cents: number }[] = [];
+  for (const raw of rawItems) {
+    const price = priceByVariant.get(raw.variantId);
+    const cents = channel === "wholesale" ? price?.wholesale_cents : price?.retail_cents;
+    if (!cents) {
+      return { error: `O fornecedor ainda não definiu o preço de ${channel === "wholesale" ? "atacado" : "varejo"} para um dos itens selecionados.` };
+    }
+    items.push({ ...raw, cents });
+  }
+
   const total = items.reduce((sum, i) => sum + i.qty * i.cents, 0);
 
   const { data: order, error: orderError } = await supabase

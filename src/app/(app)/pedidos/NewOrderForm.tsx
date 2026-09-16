@@ -10,7 +10,7 @@ type Option = { supplier: { id: string; name: string }; stock: StockRow[]; price
 export function NewOrderForm({ options }: { options: Option[] }) {
   const [state, action, pending] = useActionState(createOrderAction, null);
   const [supplierId, setSupplierId] = useState(options[0]?.supplier.id ?? "");
-  const [channel, setChannel] = useState<"retail" | "wholesale">("retail");
+  const [channel, setChannel] = useState<"retail" | "wholesale">("wholesale");
   const current = options.find((o) => o.supplier.id === supplierId);
 
   return (
@@ -34,8 +34,8 @@ export function NewOrderForm({ options }: { options: Option[] }) {
           value={channel}
           onChange={(e) => setChannel(e.target.value as "retail" | "wholesale")}
         >
-          <option value="retail">Varejo</option>
           <option value="wholesale">Atacado</option>
+          <option value="retail">Varejo</option>
         </select>
       </div>
 
@@ -56,13 +56,13 @@ export function NewOrderForm({ options }: { options: Option[] }) {
                   </div>
                 </div>
                 <input name="qty[]" className="inp w-16" inputMode="decimal" placeholder="Qtd." />
-                <input
-                  name="unit_price[]"
-                  className="inp w-24"
-                  inputMode="decimal"
-                  placeholder="Preço un."
-                  defaultValue={suggested ? (suggested / 100).toFixed(2) : ""}
-                />
+                <div className="w-24 text-right text-sm tabular">
+                  {suggested ? (
+                    (suggested / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                  ) : (
+                    <span className="text-red-600">sem preço</span>
+                  )}
+                </div>
               </div>
             );
           })}

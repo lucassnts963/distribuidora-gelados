@@ -1,14 +1,29 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createSaleAction } from "./actions";
 import { ItemsForm } from "@/components/ItemsForm";
 
 type Variant = { id: string; name: string; products?: { name: string } | null };
 type Contact = { id: string; name: string };
+type Price = { wholesale_cents: number | null; retail_cents: number | null };
 
-export function NewSaleForm({ variants, contacts }: { variants: Variant[]; contacts: Contact[] }) {
+export function NewSaleForm({
+  variants,
+  contacts,
+  prices,
+  costs,
+}: {
+  variants: Variant[];
+  contacts: Contact[];
+  prices: Record<string, Price>;
+  costs: Record<string, number>;
+}) {
   const [state, action, pending] = useActionState(createSaleAction, null);
+  const [channel, setChannel] = useState<"retail" | "wholesale">("wholesale");
+  const priceMap = new Map(Object.entries(prices));
+  const costMap = new Map(Object.entries(costs));
+
   return (
     <form action={action} className="card space-y-4 p-4">
       <div className="flex gap-2">
@@ -20,12 +35,24 @@ export function NewSaleForm({ variants, contacts }: { variants: Variant[]; conta
             </option>
           ))}
         </select>
-        <select name="channel" className="inp">
-          <option value="retail">Varejo</option>
+        <select
+          name="channel"
+          className="inp"
+          value={channel}
+          onChange={(e) => setChannel(e.target.value as "retail" | "wholesale")}
+        >
           <option value="wholesale">Atacado</option>
+          <option value="retail">Varejo</option>
         </select>
       </div>
-      <ItemsForm variants={variants} priceFieldName="unit_price" priceLabel="Preço un." />
+      <ItemsForm
+        variants={variants}
+        priceFieldName="unit_price"
+        priceLabel="Preço un."
+        channel={channel}
+        prices={priceMap}
+        costs={costMap}
+      />
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button className="btn-primary w-full" disabled={pending}>
         {pending ? "Registrando…" : "Registrar venda"}

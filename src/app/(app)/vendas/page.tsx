@@ -1,5 +1,5 @@
 import { getSessionProfile } from "@/lib/auth";
-import { listSales, orgStock, listContacts } from "@/lib/queries";
+import { listSales, orgStock, listContacts, listOrgPrices, listVariantCosts } from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
 import { NewSaleForm } from "./NewSaleForm";
 
@@ -9,10 +9,12 @@ export default async function VendasPage() {
   const profile = await getSessionProfile();
   if (!profile) return null;
 
-  const [sales, stock, contacts] = await Promise.all([
+  const [sales, stock, contacts, prices, costs] = await Promise.all([
     listSales(profile.org.id),
     orgStock(profile.org.id),
     listContacts(profile.org.id),
+    listOrgPrices(profile.org.id),
+    listVariantCosts(profile.org.id),
   ]);
   const variants = stock
     .filter((s) => s.qty > 0)
@@ -47,7 +49,12 @@ export default async function VendasPage() {
       </Section>
 
       <Section title="Nova venda">
-        <NewSaleForm variants={variants} contacts={contacts} />
+        <NewSaleForm
+          variants={variants}
+          contacts={contacts}
+          prices={Object.fromEntries(prices)}
+          costs={Object.fromEntries(costs)}
+        />
       </Section>
     </main>
   );
