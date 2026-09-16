@@ -48,16 +48,20 @@ export async function createOrganizationAction(_: unknown, form: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: org, error: orgError } = await supabase
+  // Gera o id aqui e não pede a linha de volta (sem .select()): logo após o
+  // insert, o usuário ainda não tem profile, e a policy de SELECT de
+  // organizations depende de my_org_id() (por sua vez de profiles) — pedir a
+  // linha de volta faria o Postgres tentar reler sob RLS e falhar com "new
+  // row violates row-level security policy", mesmo o INSERT sendo válido.
+  const orgId = crypto.randomUUID();
+  const { error: orgError } = await supabase
     .from("organizations")
-    .insert({ name, document: document || null })
-    .select("id")
-    .single();
-  if (orgError || !org) return { error: "Não deu pra criar a organização: " + orgError?.message };
+    .insert({ id: orgId, name, document: document || null });
+  if (orgError) return { error: "Não deu pra criar a organização: " + orgError.message };
 
   const { error: profileError } = await supabase
     .from("profiles")
-    .insert({ id: user!.id, org_id: org.id, role: "admin", full_name: user!.email });
+    .insert({ id: user!.id, org_id: orgId, role: "admin", full_name: user!.email });
   if (profileError) return { error: "Não deu pra criar o perfil: " + profileError.message };
 
   redirect("/");
