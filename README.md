@@ -74,7 +74,9 @@ abas anônimas) representando um fabricante e um distribuidor parceiro:
    conferir em `/estoque` que o saldo e a validade aparecem.
 6. `/estoque` → avançar a etapa do lote, lançar uma perda pequena e conferir
    que o saldo desconta.
-7. `/config` → copiar o **código de convite**.
+7. `/config` → copiar o **código de convite**. Na seção "Equipe", convidar
+   um segundo usuário (nome + email + papel) e conferir que o email de
+   convite chega (depende do SMTP configurado no projeto Supabase).
 
 **Conta B (distribuidor)**
 8. Criar organização "Distribuidor Teste".
@@ -141,5 +143,5 @@ direto (erro 403), então falta esse passo manual:
 3. Em **Environment Variables**, adicionar (Production e Preview):
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://gluwyubhmdxwafgotaxa.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `sb_publishable_fZX5eRDyNTT8bsVq9kVqnA_XNyZ_ZXn`
-   - `SUPABASE_SERVICE_ROLE_KEY` = (pegue em Project Settings → API do Supabase; só necessária se/quando o convite de usuário via Admin API for implementado — pode ficar de fora por enquanto)
+   - `SUPABASE_SERVICE_ROLE_KEY` = (pegue em Project Settings → API do Supabase; **obrigatória** — usada pela tela de convite de colega em Config > Equipe)
 4. Deploy. Depois disso, todo push no branch de produção redeploya sozinho.
