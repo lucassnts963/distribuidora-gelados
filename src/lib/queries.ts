@@ -558,16 +558,21 @@ export async function orgStock(orgId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("inventory_movements")
-    .select("variant_id, qty, product_variants(name, products(name))")
+    .select("variant_id, qty, product_variants(name, photo_url, products(name))")
     .eq("org_id", orgId);
 
-  const byVariant = new Map<string, { name: string; product: string; qty: number }>();
+  const byVariant = new Map<string, { name: string; product: string; photoUrl: string | null; qty: number }>();
   for (const m of data ?? []) {
-    const variant = m.product_variants as unknown as { name: string; products: { name: string } } | null;
+    const variant = m.product_variants as unknown as {
+      name: string;
+      photo_url: string | null;
+      products: { name: string };
+    } | null;
     const key = m.variant_id as string;
     const cur = byVariant.get(key) ?? {
       name: variant?.name ?? "—",
       product: variant?.products?.name ?? "—",
+      photoUrl: variant?.photo_url ?? null,
       qty: 0,
     };
     cur.qty += Number(m.qty);

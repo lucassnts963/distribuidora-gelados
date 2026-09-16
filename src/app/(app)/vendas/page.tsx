@@ -3,7 +3,7 @@ import { listSales, orgStock, listContacts, listOrgPrices, listVariantCosts, lis
 import { Section, Empty, Money } from "@/components/ui";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { fmtDate } from "@/lib/format";
-import { NewSaleForm } from "./NewSaleForm";
+import { SaleFormSwitcher } from "./SaleFormSwitcher";
 import { cancelSaleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export default async function VendasPage() {
   ]);
   const variants = stock
     .filter((s) => s.qty > 0)
-    .map((s) => ({ id: s.variantId, name: s.name, products: { name: s.product } }));
+    .map((s) => ({ id: s.variantId, name: s.name, products: { name: s.product }, photoUrl: s.photoUrl }));
 
   return (
     <main>
@@ -70,7 +70,7 @@ export default async function VendasPage() {
       </Section>
 
       <Section title="Nova venda">
-        <NewSaleForm
+        <SaleFormSwitcher
           variants={variants}
           contacts={contacts}
           prices={Object.fromEntries(prices)}
