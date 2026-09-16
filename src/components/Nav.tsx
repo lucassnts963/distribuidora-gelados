@@ -14,7 +14,8 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
 
   const items = [
     { href: "/", label: "Painel", icon: "◎", show: true },
-    { href: "/produtos", label: "Produção", icon: "⚙", show: capabilities.hasOwnProducts },
+    { href: "/producao", label: "Produção", icon: "⚙", show: capabilities.hasOwnProducts },
+    { href: "/estoque", label: "Estoque", icon: "▦", show: capabilities.hasOwnProducts },
     { href: "/pedidos", label: "Pedidos", icon: "↘", show: capabilities.supplierPartnerCount > 0 },
     { href: "/fornecedores", label: "Fornecedores", icon: "↗", show: capabilities.buyerPartnerCount > 0 },
     { href: "/parcerias", label: "Parcerias", icon: "⇄", show: true },

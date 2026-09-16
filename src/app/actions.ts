@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/lib/auth";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -63,6 +64,9 @@ export async function createOrganizationAction(_: unknown, form: FormData) {
 }
 
 export async function proposePartnershipAction(_: unknown, form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile) return { error: "Sessão inválida." };
+
   const inviteCode = s(form, "invite_code");
   const role = s(form, "role"); // "supplier" ou "buyer" - o papel do ALVO na relação
   if (!inviteCode) return { error: "Informe o código de convite." };
@@ -73,15 +77,9 @@ export async function proposePartnershipAction(_: unknown, form: FormData) {
     .maybeSingle();
   if (lookupError || !target) return { error: "Código não encontrado." };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("org_id")
-    .single();
-  if (!profile) return { error: "Sessão inválida." };
-
   const isTargetSupplier = role === "supplier";
-  const supplier_org_id = isTargetSupplier ? (target as { id: string }).id : profile.org_id;
-  const buyer_org_id = isTargetSupplier ? profile.org_id : (target as { id: string }).id;
+  const supplier_org_id = isTargetSupplier ? (target as { id: string }).id : profile.org.id;
+  const buyer_org_id = isTargetSupplier ? profile.org.id : (target as { id: string }).id;
 
   const { error } = await supabase
     .from("partnerships")

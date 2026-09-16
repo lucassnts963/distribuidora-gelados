@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getSessionProfile } from "@/lib/auth";
 import { Section, Empty, Stat } from "@/components/ui";
 
@@ -22,21 +23,43 @@ export default async function PainelPage() {
         </div>
       </Section>
 
-      <Section title="Próximos passos">
-        <Empty>
-          {!capabilities.hasOwnProducts &&
-            capabilities.supplierPartnerCount === 0 &&
-            capabilities.buyerPartnerCount === 0 ? (
-            <>
-              Comece propondo uma parceria (com um fornecedor ou cliente) em{" "}
-              <span className="font-semibold text-brand-600">Parcerias</span>. Cadastro de
-              produtos, estoque e pedidos chegam nas próximas etapas.
-            </>
-          ) : (
-            "Mais módulos (produção, estoque, pedidos) chegam nas próximas etapas."
-          )}
-        </Empty>
+      <Section title="Produção">
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/produtos" className="card p-4">
+            <div className="text-2xl">📦</div>
+            <div className="mt-1 font-semibold">Produtos</div>
+            <div className="text-xs muted">Cadastro e campos personalizados</div>
+          </Link>
+          <Link href="/insumos" className="card p-4">
+            <div className="text-2xl">🧪</div>
+            <div className="mt-1 font-semibold">Insumos</div>
+            <div className="text-xs muted">Entrada e saída de matéria-prima</div>
+          </Link>
+          <Link href="/producao" className="card p-4">
+            <div className="text-2xl">⚙️</div>
+            <div className="mt-1 font-semibold">Produção</div>
+            <div className="text-xs muted">Lotes e capacidade produtiva</div>
+          </Link>
+          <Link href="/estoque" className="card p-4">
+            <div className="text-2xl">▦</div>
+            <div className="mt-1 font-semibold">Estoque</div>
+            <div className="text-xs muted">Saldo, validade e etapas</div>
+          </Link>
+        </div>
       </Section>
+
+      {!capabilities.hasOwnProducts &&
+        capabilities.supplierPartnerCount === 0 &&
+        capabilities.buyerPartnerCount === 0 && (
+          <Section title="Próximos passos">
+            <Empty>
+              Comece cadastrando um produto em <span className="font-semibold text-brand-600">Produtos</span>{" "}
+              (se você fabrica algo), ou propondo uma parceria em{" "}
+              <span className="font-semibold text-brand-600">Parcerias</span> (se você compra ou vende de
+              alguém que já usa o sistema).
+            </Empty>
+          </Section>
+        )}
     </main>
   );
 }

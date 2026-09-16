@@ -20,12 +20,12 @@ export default async function ParceriasPage() {
   const [{ data: asSupplier }, { data: asBuyer }] = await Promise.all([
     supabase
       .from("partnerships")
-      .select("id, status, created_at, buyer:buyer_org_id(id, name)")
+      .select("id, status, created_at, buyer:organizations!buyer_org_id(id, name)")
       .eq("supplier_org_id", profile.org.id)
       .order("created_at", { ascending: false }),
     supabase
       .from("partnerships")
-      .select("id, status, created_at, supplier:supplier_org_id(id, name)")
+      .select("id, status, created_at, supplier:organizations!supplier_org_id(id, name)")
       .eq("buyer_org_id", profile.org.id)
       .order("created_at", { ascending: false }),
   ]);
