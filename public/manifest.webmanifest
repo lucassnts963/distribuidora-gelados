@@ -1,10 +1,10 @@
 {
-  "name": "Gelados · Controle",
-  "short_name": "Gelados",
+  "name": "Giro",
+  "short_name": "Giro",
   "description": "Fabricante, distribuidores e clientes: estoque, pedidos e caixa num só lugar",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fafaf9",
+  "background_color": "#FBF6F1",
   "theme_color": "#f05d06",
   "orientation": "portrait",
   "icons": [

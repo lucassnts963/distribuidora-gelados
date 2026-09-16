@@ -11,6 +11,15 @@ const statusLabel: Record<string, string> = {
   active: "Ativa",
   revoked: "Encerrada",
 };
+const statusTone: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-700",
+  active: "bg-giroteal-100 text-giroteal-700",
+  revoked: "bg-stone-100 text-stone-500",
+};
+
+function StatusChip({ status }: { status: string }) {
+  return <span className={`chip ${statusTone[status]}`}>{statusLabel[status]}</span>;
+}
 
 export default async function ParceriasPage() {
   const profile = await getSessionProfile();
@@ -49,7 +58,7 @@ export default async function ParceriasPage() {
                 <li key={row.id} className="card flex items-center justify-between gap-2 p-3">
                   <div>
                     <div className="font-semibold">{buyer?.name ?? "—"}</div>
-                    <div className="text-xs muted">{statusLabel[row.status]}</div>
+                    <StatusChip status={row.status} />
                   </div>
                   {row.status === "pending" && (
                     <div className="flex gap-2">
@@ -83,7 +92,7 @@ export default async function ParceriasPage() {
                 <li key={row.id} className="card flex items-center justify-between gap-2 p-3">
                   <div>
                     <div className="font-semibold">{supplier?.name ?? "—"}</div>
-                    <div className="text-xs muted">{statusLabel[row.status]}</div>
+                    <StatusChip status={row.status} />
                   </div>
                   {row.status !== "revoked" && (
                     <form action={decidePartnershipAction}>

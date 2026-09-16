@@ -1,11 +1,11 @@
 services:
-  gelados:
+  giro:
     build:
       context: .
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?defina NEXT_PUBLIC_SUPABASE_URL no .env}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?defina NEXT_PUBLIC_SUPABASE_ANON_KEY no .env}
-    container_name: gelados
+    container_name: giro
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"

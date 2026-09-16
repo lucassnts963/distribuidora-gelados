@@ -1,6 +1,7 @@
-# Gelados — plataforma multi-tenant
+# Giro
 
-Sistema web para uma cadeia de fabricante → distribuidores → clientes, onde
+Fabricante, distribuidores e clientes — girando juntos. Sistema web para uma
+cadeia de fabricante → distribuidores → clientes, onde
 qualquer organização pode fabricar, revender, ter clientes próprios, ou as
 três coisas ao mesmo tempo — não existe um "tipo" fixo de organização, os
 módulos aparecem conforme cada uma passa a usá-los.

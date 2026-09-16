@@ -1,25 +1,30 @@
-// Gera os ícones PWA (public/icons/*.png) a partir de um SVG simples.
-// Rodar uma vez (`node scripts/generate-icons.mjs`) sempre que o desenho mudar;
-// os PNGs gerados ficam versionados, não é build step do app.
+// Gera os ícones PWA (public/icons/*.png) a partir do símbolo da marca Giro
+// (três arcos em rotação — ver brand/giro-identity.html). Rodar de novo
+// (`node scripts/generate-icons.mjs`) sempre que o desenho mudar; os PNGs
+// gerados ficam versionados, não é build step do app.
 import sharp from "sharp";
 import { mkdirSync, writeFileSync } from "node:fs";
 
-const BRAND = "#f05d06";
+const ORANGE = "#F05D06";
 
-const box = (opacityLeft, opacityRight) => `
-  <polygon points="256,116 376,186 256,256 136,186" fill="#ffffff"/>
-  <polygon points="136,186 256,256 256,396 136,326" fill="#ffffff" fill-opacity="${opacityLeft}"/>
-  <polygon points="256,256 376,186 376,326 256,396" fill="#ffffff" fill-opacity="${opacityRight}"/>
+const mark = `
+  <path d="M180,100 A80,80 0 0 1 86.11,178.78" fill="none" stroke="#ffffff" stroke-width="17" stroke-linecap="round" opacity="0.95"/>
+  <path d="M60,169.28 A80,80 0 0 1 38.72,48.58" fill="none" stroke="#ffffff" stroke-width="17" stroke-linecap="round" opacity="0.75"/>
+  <path d="M60,30.72 A80,80 0 0 1 175.18,72.64" fill="none" stroke="#ffffff" stroke-width="17" stroke-linecap="round" opacity="0.55"/>
+  <circle cx="180" cy="100" r="12" fill="#ffffff"/>
+  <circle cx="60" cy="169.28" r="12" fill="#ffffff" opacity="0.85"/>
+  <circle cx="60" cy="30.72" r="12" fill="#ffffff" opacity="0.7"/>
 `;
 
-function icon({ pad = 0 } = {}) {
+function icon({ maskable = false } = {}) {
   const s = 512;
-  const r = pad ? 0 : 96; // maskable (pad>0) preenche o quadrado todo, sem cantos arredondados
+  const r = maskable ? 0 : 96; // maskable preenche o quadrado todo, sem cantos arredondados
+  const spanFrac = maskable ? 0.52 : 0.62; // maskable precisa de mais margem (crop circular do SO)
+  const span = s * spanFrac;
+  const offset = (s - span) / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
-    <rect width="${s}" height="${s}" rx="${r}" fill="${BRAND}"/>
-    <g transform="translate(0 ${pad ? 18 : 0}) scale(${pad ? 0.82 : 1})" transform-origin="256 256">
-      ${box(0.75, 0.9)}
-    </g>
+    <rect width="${s}" height="${s}" rx="${r}" fill="${ORANGE}"/>
+    <svg x="${offset}" y="${offset}" width="${span}" height="${span}" viewBox="0 0 200 200">${mark}</svg>
   </svg>`;
 }
 
@@ -28,7 +33,7 @@ mkdirSync("public/icons", { recursive: true });
 const jobs = [
   { name: "icon-192.png", size: 192, svg: icon() },
   { name: "icon-512.png", size: 512, svg: icon() },
-  { name: "icon-maskable-512.png", size: 512, svg: icon({ pad: 1 }) },
+  { name: "icon-maskable-512.png", size: 512, svg: icon({ maskable: true }) },
   { name: "apple-touch-icon.png", size: 180, svg: icon() },
 ];
 

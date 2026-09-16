@@ -3,17 +3,16 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { signInAction } from "@/app/actions";
+import { GiroMark } from "@/components/GiroMark";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(signInAction, null);
   return (
     <main className="flex min-h-[80vh] flex-col justify-center">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-500 text-3xl">
-          🍊
-        </div>
-        <h1 className="h1">Distribuidora</h1>
-        <p className="text-sm muted">Fabricante, distribuidores e clientes num só lugar</p>
+        <GiroMark size={64} className="mx-auto mb-3" />
+        <h1 className="h1">Giro</h1>
+        <p className="text-sm muted">Fabricante, distribuidores e clientes — girando juntos</p>
       </div>
       <form action={action} className="card space-y-4 p-5">
         <div>

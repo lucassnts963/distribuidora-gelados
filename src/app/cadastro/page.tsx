@@ -3,15 +3,14 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { signUpAction } from "@/app/actions";
+import { GiroMark } from "@/components/GiroMark";
 
 export default function CadastroPage() {
   const [state, action, pending] = useActionState(signUpAction, null);
   return (
     <main className="flex min-h-[80vh] flex-col justify-center">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-500 text-3xl">
-          🍊
-        </div>
+        <GiroMark size={64} className="mx-auto mb-3" />
         <h1 className="h1">Criar conta</h1>
         <p className="text-sm muted">No próximo passo você cria ou entra numa organização</p>
       </div>

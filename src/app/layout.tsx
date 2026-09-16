@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 
 export const metadata: Metadata = {
-  title: "Gelados · Controle",
+  title: "Giro",
   description: "Fabricante, distribuidores e clientes: estoque, pedidos e caixa num só lugar",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Gelados",
+    title: "Giro",
   },
 };
 export const viewport: Viewport = {
