@@ -38,9 +38,10 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
   const pathname = usePathname();
   const canSell = capabilities.hasOwnProducts || capabilities.buyerPartnerCount > 0;
 
-  // No celular só cabem as abas de uso mais frequente; o resto chega pelo
-  // Painel. No PC a sidebar tem espaço pra todos os módulos, agrupados igual
-  // ao Painel — era isso que deixava a tela larga vazia.
+  // A barra do celular filtra por capacidade porque só cabem 5 abas — é
+  // triagem de espaço. A sidebar não filtra: esconder Produção e Insumos de
+  // quem ainda não tem produto esconderia justamente o caminho de virar
+  // fabricante, e o Painel já lista todos os módulos sem filtro nenhum.
   const bottomItems: Item[] = [
     { href: "/", label: "Painel", icon: "◎", show: true },
     { href: "/producao", label: "Produção", icon: "⚙", show: capabilities.hasOwnProducts },
@@ -65,18 +66,18 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
       title: "Produção",
       items: [
         { href: "/produtos", label: "Produtos", icon: "📦", show: true },
-        { href: "/insumos", label: "Insumos", icon: "🧪", show: capabilities.hasOwnProducts },
-        { href: "/producao", label: "Produção", icon: "⚙️", show: capabilities.hasOwnProducts },
-        { href: "/estoque", label: "Estoque", icon: "▦", show: canSell },
+        { href: "/insumos", label: "Insumos", icon: "🧪", show: true },
+        { href: "/producao", label: "Produção", icon: "⚙️", show: true },
+        { href: "/estoque", label: "Estoque", icon: "▦", show: true },
       ],
     },
     {
       title: "Comercial",
       items: [
-        { href: "/vendas", label: "Vendas", icon: "💰", show: canSell },
+        { href: "/vendas", label: "Vendas", icon: "💰", show: true },
         { href: "/compras", label: "Compras", icon: "🧾", show: true },
         { href: "/contatos", label: "Contatos", icon: "👥", show: true },
-        { href: "/precos", label: "Preços", icon: "🏷️", show: canSell },
+        { href: "/precos", label: "Preços", icon: "🏷️", show: true },
         { href: "/despesas", label: "Despesas", icon: "📉", show: true },
         { href: "/relatorios", label: "Relatórios", icon: "📊", show: true },
       ],
