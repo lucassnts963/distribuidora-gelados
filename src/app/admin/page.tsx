@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { Modal } from "@/components/Modal";
 import { toggleOrgAccessAction } from "./actions";
 import { TransferOrgForm } from "./TransferOrgForm";
+import { OrgModulesForm } from "./OrgModulesForm";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,24 @@ async function listOrgs() {
     .order("created_at", { ascending: false });
   if (!orgs) return [];
 
-  const { data: profiles } = await admin.from("profiles").select("org_id");
+  const [{ data: profiles }, { data: modules }] = await Promise.all([
+    admin.from("profiles").select("org_id"),
+    admin.from("org_modules").select("org_id, module").eq("enabled", false),
+  ]);
   const memberCountByOrg = new Map<string, number>();
   for (const p of profiles ?? []) {
     memberCountByOrg.set(p.org_id, (memberCountByOrg.get(p.org_id) ?? 0) + 1);
   }
+  const disabledByOrg = new Map<string, string[]>();
+  for (const m of modules ?? []) {
+    disabledByOrg.set(m.org_id, [...(disabledByOrg.get(m.org_id) ?? []), m.module]);
+  }
 
-  return orgs.map((o) => ({ ...o, memberCount: memberCountByOrg.get(o.id) ?? 0 }));
+  return orgs.map((o) => ({
+    ...o,
+    memberCount: memberCountByOrg.get(o.id) ?? 0,
+    disabledModules: disabledByOrg.get(o.id) ?? [],
+  }));
 }
 
 export default async function AdminPage() {
@@ -48,6 +60,9 @@ export default async function AdminPage() {
               </div>
             </div>
             <div className="flex shrink-0 gap-2">
+              <Modal triggerLabel="Módulos" triggerClassName="btn-ghost" title={`Módulos de "${org.name}"`}>
+                <OrgModulesForm orgId={org.id} disabled={org.disabledModules} />
+              </Modal>
               <Modal triggerLabel="Transferir" triggerClassName="btn-ghost" title={`Transferir "${org.name}"`}>
                 <TransferOrgForm orgId={org.id} memberCount={org.memberCount} />
               </Modal>

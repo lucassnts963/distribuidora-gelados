@@ -26,7 +26,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <>
-      <Nav capabilities={profile.capabilities} unseenCount={unseenCount} />
+      <Nav
+        capabilities={profile.capabilities}
+        unseenCount={unseenCount}
+        disabledModules={[...profile.disabledModules]}
+      />
       <div className="lg:pl-60">
         <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-5 lg:px-8 lg:pb-10">{children}</div>
       </div>

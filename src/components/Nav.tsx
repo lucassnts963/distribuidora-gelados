@@ -4,7 +4,7 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { GiroMark } from "@/components/GiroMark";
-import { MODULES, moduleByHref, type ModuleGroup } from "@/lib/modules";
+import { MODULES, moduleByHref, type ModuleGroup, type ModuleKey } from "@/lib/modules";
 
 type Capabilities = {
   hasOwnProducts: boolean;
@@ -54,18 +54,23 @@ const GROUP_ORDER: ModuleGroup[] = ["Rede", "Produção", "Comercial"];
 export default function Nav({
   capabilities,
   unseenCount = 0,
+  disabledModules = [],
 }: {
   capabilities: Capabilities;
   unseenCount?: number;
+  disabledModules?: ModuleKey[];
 }) {
   const pathname = usePathname();
   const canSell = capabilities.hasOwnProducts || capabilities.buyerPartnerCount > 0;
+  const isEnabled = (m: { key: ModuleKey | null }) => m.key === null || !disabledModules.includes(m.key);
 
   // A barra do celular filtra por capacidade porque só cabem as abas de uso
-  // mais frequente — é triagem de espaço. A sidebar não filtra: esconder
-  // Produção e Insumos de quem ainda não tem produto esconderia justamente
-  // o caminho de virar fabricante, e o Painel já lista todos os módulos sem
-  // filtro nenhum. Avisos não depende de capacidade — vale pra qualquer um.
+  // mais frequente — é triagem de espaço. A sidebar não filtra por
+  // capacidade: esconder Produção e Insumos de quem ainda não tem produto
+  // esconderia justamente o caminho de virar fabricante, e o Painel já
+  // lista todos os módulos sem esse filtro. Módulo desligado pela
+  // organização (liberação por módulo, super-admin) é outro eixo — some
+  // dos dois lugares, porque aí a organização não contratou aquilo.
   const bottomShow: Record<string, boolean> = {
     "/": true,
     "/producao": capabilities.hasOwnProducts,
@@ -76,13 +81,17 @@ export default function Nav({
   };
   const bottomItems = Object.keys(bottomShow)
     .filter((href) => bottomShow[href])
-    .map((href) => moduleByHref(href));
+    .map((href) => moduleByHref(href))
+    .filter(isEnabled);
 
   const groups = [
     { title: null, items: [painel, avisos] },
-    ...GROUP_ORDER.map((title) => ({ title, items: MODULES.filter((m) => m.group === title) })),
+    ...GROUP_ORDER.map((title) => ({
+      title,
+      items: MODULES.filter((m) => m.group === title && isEnabled(m)),
+    })),
     { title: null, items: [config, ajuda] },
-  ];
+  ].filter((g) => g.items.length > 0);
 
   return (
     <>

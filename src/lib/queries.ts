@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { ModuleKey } from "@/lib/modules";
 
 export type CustomField = {
   id: string;
@@ -374,4 +375,18 @@ export async function orgStock(orgId: string) {
     byVariant.set(key, cur);
   }
   return Array.from(byVariant, ([variantId, v]) => ({ variantId, ...v }));
+}
+
+/**
+ * Módulos desligados pra essa organização — sem linha em org_modules pra
+ * um módulo, ele está liberado (grandfathering). Só as exceções vêm daqui.
+ */
+export async function listDisabledModules(orgId: string): Promise<Set<ModuleKey>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("org_modules")
+    .select("module")
+    .eq("org_id", orgId)
+    .eq("enabled", false);
+  return new Set((data ?? []).map((r) => r.module as ModuleKey));
 }

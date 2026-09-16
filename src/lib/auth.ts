@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { listDisabledModules } from "@/lib/queries";
+import type { ModuleKey } from "@/lib/modules";
 
 export type SessionProfile = {
   userId: string;
@@ -12,6 +14,7 @@ export type SessionProfile = {
     supplierPartnerCount: number;
     buyerPartnerCount: number;
   };
+  disabledModules: Set<ModuleKey>;
 };
 
 /**
@@ -42,7 +45,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     plan: string;
   };
 
-  const [{ count: productsCount }, { count: supplierCount }, { count: buyerCount }] =
+  const [{ count: productsCount }, { count: supplierCount }, { count: buyerCount }, disabledModules] =
     await Promise.all([
       supabase
         .from("products")
@@ -58,6 +61,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
         .select("id", { count: "exact", head: true })
         .eq("buyer_org_id", org.id)
         .eq("status", "active"),
+      listDisabledModules(org.id),
     ]);
 
   return {
@@ -79,6 +83,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
       supplierPartnerCount: supplierCount ?? 0,
       buyerPartnerCount: buyerCount ?? 0,
     },
+    disabledModules,
   };
 }
 

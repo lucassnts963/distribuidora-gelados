@@ -26,19 +26,25 @@ export default async function PainelPage() {
         </div>
       </Section>
 
-      {GROUP_ORDER.map((group) => (
-        <Section key={group} title={group}>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-            {MODULES.filter((m) => m.group === group).map((m) => (
-              <Link key={m.href} href={m.href} className="card p-4">
-                <m.icon className="h-6 w-6 text-brand-600" strokeWidth={2} />
-                <div className="mt-1 font-semibold">{m.label}</div>
-                <div className="text-xs muted">{m.description}</div>
-              </Link>
-            ))}
-          </div>
-        </Section>
-      ))}
+      {GROUP_ORDER.map((group) => {
+        const items = MODULES.filter(
+          (m) => m.group === group && (m.key === null || !profile.disabledModules.has(m.key))
+        );
+        if (!items.length) return null;
+        return (
+          <Section key={group} title={group}>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+              {items.map((m) => (
+                <Link key={m.href} href={m.href} className="card p-4">
+                  <m.icon className="h-6 w-6 text-brand-600" strokeWidth={2} />
+                  <div className="mt-1 font-semibold">{m.label}</div>
+                  <div className="text-xs muted">{m.description}</div>
+                </Link>
+              ))}
+            </div>
+          </Section>
+        );
+      })}
 
       {!capabilities.hasOwnProducts &&
         capabilities.supplierPartnerCount === 0 &&

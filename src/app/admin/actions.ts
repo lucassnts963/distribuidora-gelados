@@ -78,3 +78,24 @@ export async function transferOrganizationAction(_: unknown, form: FormData) {
   revalidatePath("/admin");
   return { ok: true };
 }
+
+/**
+ * org_modules não tem policy de insert/update pro client normal (só
+ * select) — a escrita é sempre pela service role, atrás do isSuperAdmin()
+ * checado aqui, igual transferOrganizationAction.
+ */
+export async function toggleOrgModuleAction(form: FormData) {
+  if (!(await isSuperAdmin())) return;
+
+  const orgId = s(form, "org_id");
+  const module = s(form, "module");
+  const enabled = s(form, "enabled") === "true";
+
+  const admin = createAdminClient();
+  await admin.from("org_modules").upsert(
+    { org_id: orgId, module, enabled },
+    { onConflict: "org_id,module" }
+  );
+
+  revalidatePath("/admin");
+}
