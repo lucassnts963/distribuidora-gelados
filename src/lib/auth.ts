@@ -5,7 +5,7 @@ export type SessionProfile = {
   email: string | null;
   fullName: string | null;
   role: "admin" | "staff";
-  org: { id: string; name: string; document: string | null; inviteCode: string };
+  org: { id: string; name: string; document: string | null; inviteCode: string; active: boolean; plan: string };
   capabilities: {
     hasOwnProducts: boolean;
     supplierPartnerCount: number;
@@ -27,7 +27,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, full_name, organizations(id, name, document, invite_code)")
+    .select("role, full_name, organizations(id, name, document, invite_code, active, plan)")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -37,6 +37,8 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     name: string;
     document: string | null;
     invite_code: string;
+    active: boolean;
+    plan: string;
   };
 
   const [{ count: productsCount }, { count: supplierCount }, { count: buyerCount }] =
@@ -62,11 +64,38 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     email: user.email ?? null,
     fullName: profile.full_name,
     role: profile.role as "admin" | "staff",
-    org: { id: org.id, name: org.name, document: org.document, inviteCode: org.invite_code },
+    org: {
+      id: org.id,
+      name: org.name,
+      document: org.document,
+      inviteCode: org.invite_code,
+      active: org.active,
+      plan: org.plan,
+    },
     capabilities: {
       hasOwnProducts: (productsCount ?? 0) > 0,
       supplierPartnerCount: supplierCount ?? 0,
       buyerPartnerCount: buyerCount ?? 0,
     },
   };
+}
+
+/**
+ * Verifica via RLS (policy platform_admins_select_self) se o usuário logado
+ * é dono da plataforma. Não confundir com role "admin" de profiles, que é
+ * permissão dentro de uma organização.
+ */
+export async function isSuperAdmin(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data } = await supabase
+    .from("platform_admins")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return !!data;
 }
