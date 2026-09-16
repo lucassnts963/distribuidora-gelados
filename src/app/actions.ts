@@ -48,21 +48,16 @@ export async function createOrganizationAction(_: unknown, form: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Gera o id aqui e não pede a linha de volta (sem .select()): logo após o
-  // insert, o usuário ainda não tem profile, e a policy de SELECT de
-  // organizations depende de my_org_id() (por sua vez de profiles) — pedir a
-  // linha de volta faria o Postgres tentar reler sob RLS e falhar com "new
-  // row violates row-level security policy", mesmo o INSERT sendo válido.
-  const orgId = crypto.randomUUID();
-  const { error: orgError } = await supabase
-    .from("organizations")
-    .insert({ id: orgId, name, document: document || null });
-  if (orgError) return { error: "Não deu pra criar a organização: " + orgError.message };
-
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .insert({ id: user!.id, org_id: orgId, role: "admin", full_name: user!.email });
-  if (profileError) return { error: "Não deu pra criar o perfil: " + profileError.message };
+  // Organização + profile numa função security definer: o client não tem
+  // (nem pode ter) permissão de escrever org_id/role em profiles, senão
+  // qualquer usuário se moveria pra dentro de outro tenant. A função também
+  // resolve o ovo-e-galinha de RLS que existia aqui, já que roda com
+  // privilégio próprio em vez de depender de my_org_id().
+  const { error } = await supabase.rpc("create_organization", {
+    p_name: name,
+    p_document: document || null,
+  });
+  if (error) return { error: "Não deu pra criar a organização: " + error.message };
 
   redirect("/");
 }
