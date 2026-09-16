@@ -44,6 +44,7 @@ export default async function RelatoriosPage() {
           <Stat label="CMV" value={fmt(summary.cmv)} />
           <Stat label="Lucro bruto" value={fmt(summary.grossProfit)} tone={summary.grossProfit >= 0 ? "good" : "bad"} />
           <Stat label="Lucro líquido" value={fmt(summary.netProfit)} tone={summary.netProfit >= 0 ? "good" : "bad"} />
+          <Stat label="Taxas de pagamento" value={fmt(summary.feesTotal)} />
           <Stat label="Caixa (entrou)" value={fmt(summary.cashIn)} />
           <Stat label="Caixa (saiu)" value={fmt(summary.cashOut)} />
         </div>

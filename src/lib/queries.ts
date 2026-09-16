@@ -331,6 +331,16 @@ export async function listExpenses(orgId: string, limit = 20) {
   return data ?? [];
 }
 
+export async function listPaymentMethods(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("payment_methods")
+    .select("id, name, fee_percent, active")
+    .eq("org_id", orgId)
+    .order("name");
+  return data ?? [];
+}
+
 export async function periodSummary(orgId: string, from: string, to: string) {
   const supabase = await createClient();
 
@@ -344,7 +354,7 @@ export async function periodSummary(orgId: string, from: string, to: string) {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("total_cents")
+    .select("total_cents, fee_cents")
     .eq("supplier_org_id", orgId)
     .eq("status", "delivered")
     .gte("created_at", from)
@@ -365,15 +375,27 @@ export async function periodSummary(orgId: string, from: string, to: string) {
     .lte("occurred_on", to);
 
   const revenue = (orders ?? []).reduce((sum, o) => sum + o.total_cents, 0);
+  const feesTotal = (orders ?? []).reduce((sum, o) => sum + (o.fee_cents ?? 0), 0);
   const cmv = (saleMovements ?? []).reduce((sum, m) => sum + Math.abs(Number(m.qty)) * m.unit_cost_cents, 0);
   const expensesTotal = (expenses ?? []).reduce((sum, e) => sum + e.amount_cents, 0);
   const purchasesTotal = (purchases ?? []).reduce((sum, p) => sum + p.total_cents, 0);
   const grossProfit = revenue - cmv;
-  const netProfit = grossProfit - expensesTotal;
+  const netProfit = grossProfit - expensesTotal - feesTotal;
   const cashIn = revenue;
-  const cashOut = purchasesTotal + expensesTotal;
+  const cashOut = purchasesTotal + expensesTotal + feesTotal;
 
-  return { revenue, cmv, grossProfit, netProfit, expensesTotal, purchasesTotal, cashIn, cashOut, cashFlow: cashIn - cashOut };
+  return {
+    revenue,
+    cmv,
+    grossProfit,
+    netProfit,
+    expensesTotal,
+    feesTotal,
+    purchasesTotal,
+    cashIn,
+    cashOut,
+    cashFlow: cashIn - cashOut,
+  };
 }
 
 export async function channelBreakdown(orgId: string, from: string, to: string) {

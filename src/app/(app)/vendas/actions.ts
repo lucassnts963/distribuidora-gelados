@@ -17,6 +17,7 @@ export async function createSaleAction(_: unknown, form: FormData) {
 
   const contactId = s(form, "contact_id");
   const channel = s(form, "channel") || "retail";
+  const paymentMethodId = s(form, "payment_method_id");
   const items = parseItems(form, "unit_price");
   if (!items.length) return { error: "Adicione ao menos um item." };
 
@@ -31,6 +32,19 @@ export async function createSaleAction(_: unknown, form: FormData) {
       ? Math.round((total * profile.commissionRateBp) / 10000)
       : null;
 
+  // Mesmo princípio pra taxa da forma de pagamento: congela o percentual
+  // vigente agora, mudar a taxa depois não altera venda já feita.
+  let feeCents: number | null = null;
+  if (paymentMethodId) {
+    const { data: method } = await supabase
+      .from("payment_methods")
+      .select("fee_percent")
+      .eq("id", paymentMethodId)
+      .eq("org_id", profile.org.id)
+      .maybeSingle();
+    if (method) feeCents = Math.round((total * Number(method.fee_percent)) / 100);
+  }
+
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
@@ -40,6 +54,8 @@ export async function createSaleAction(_: unknown, form: FormData) {
       channel,
       total_cents: total,
       commission_cents: commissionCents,
+      payment_method_id: paymentMethodId || null,
+      fee_cents: feeCents,
       created_by: profile.userId,
       decided_at: new Date().toISOString(),
     })

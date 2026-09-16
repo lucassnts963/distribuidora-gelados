@@ -1,8 +1,10 @@
 import { getSessionProfile } from "@/lib/auth";
-import { orgStock, listOrgPrices } from "@/lib/queries";
+import { orgStock, listOrgPrices, listPaymentMethods } from "@/lib/queries";
 import { Section, Empty } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { savePriceAction } from "./actions";
+import { AddPaymentMethodForm } from "./AddPaymentMethodForm";
+import { PaymentMethodItem } from "./PaymentMethodItem";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +12,11 @@ export default async function PrecosPage() {
   const profile = await getSessionProfile();
   if (!profile) return null;
 
-  const [stock, prices] = await Promise.all([orgStock(profile.org.id), listOrgPrices(profile.org.id)]);
+  const [stock, prices, paymentMethods] = await Promise.all([
+    orgStock(profile.org.id),
+    listOrgPrices(profile.org.id),
+    listPaymentMethods(profile.org.id),
+  ]);
 
   return (
     <main>
@@ -66,6 +72,25 @@ export default async function PrecosPage() {
             })}
           </ul>
         )}
+      </Section>
+
+      <Section title="Formas de pagamento">
+        <p className="text-sm muted">
+          Taxa cobrada em cima do valor da venda (cartão, por exemplo). Fica congelada em cada venda —
+          mudar a taxa aqui não altera vendas já feitas.
+        </p>
+        {!paymentMethods.length ? (
+          <Empty>Nenhuma forma de pagamento cadastrada ainda.</Empty>
+        ) : (
+          <ul className="space-y-2">
+            {paymentMethods.map((pm) => (
+              <PaymentMethodItem key={pm.id} id={pm.id} name={pm.name} feePercent={pm.fee_percent} active={pm.active} />
+            ))}
+          </ul>
+        )}
+        <div className="mt-3">
+          <AddPaymentMethodForm />
+        </div>
       </Section>
     </main>
   );

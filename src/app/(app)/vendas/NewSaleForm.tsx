@@ -7,17 +7,20 @@ import { ItemsForm } from "@/components/ItemsForm";
 type Variant = { id: string; name: string; products?: { name: string } | null };
 type Contact = { id: string; name: string };
 type Price = { wholesale_cents: number | null; retail_cents: number | null };
+type PaymentMethod = { id: string; name: string; fee_percent: number };
 
 export function NewSaleForm({
   variants,
   contacts,
   prices,
   costs,
+  paymentMethods,
 }: {
   variants: Variant[];
   contacts: Contact[];
   prices: Record<string, Price>;
   costs: Record<string, number>;
+  paymentMethods: PaymentMethod[];
 }) {
   const [state, action, pending] = useActionState(createSaleAction, null);
   const [channel, setChannel] = useState<"retail" | "wholesale">("wholesale");
@@ -44,6 +47,17 @@ export function NewSaleForm({
           <option value="wholesale">Atacado</option>
           <option value="retail">Varejo</option>
         </select>
+        {paymentMethods.length > 0 && (
+          <select name="payment_method_id" className="inp">
+            <option value="">Sem forma de pagamento</option>
+            {paymentMethods.map((pm) => (
+              <option key={pm.id} value={pm.id}>
+                {pm.name}
+                {pm.fee_percent ? ` (${pm.fee_percent}%)` : ""}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       <ItemsForm
         variants={variants}
