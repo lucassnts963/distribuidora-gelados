@@ -15,12 +15,14 @@ export function SaleFormSwitcher({
   prices,
   costs,
   paymentMethods,
+  loyaltyEnabled,
 }: {
   variants: Variant[];
   contacts: Contact[];
   prices: Record<string, Price>;
   costs: Record<string, number>;
   paymentMethods: PaymentMethod[];
+  loyaltyEnabled: boolean;
 }) {
   const [mode, setMode] = useState<"pdv" | "lista">("pdv");
 
@@ -43,9 +45,23 @@ export function SaleFormSwitcher({
         </button>
       </div>
       {mode === "pdv" ? (
-        <PDVForm variants={variants} contacts={contacts} prices={prices} costs={costs} paymentMethods={paymentMethods} />
+        <PDVForm
+          variants={variants}
+          contacts={contacts}
+          prices={prices}
+          costs={costs}
+          paymentMethods={paymentMethods}
+          loyaltyEnabled={loyaltyEnabled}
+        />
       ) : (
-        <NewSaleForm variants={variants} contacts={contacts} prices={prices} costs={costs} paymentMethods={paymentMethods} />
+        <NewSaleForm
+          variants={variants}
+          contacts={contacts}
+          prices={prices}
+          costs={costs}
+          paymentMethods={paymentMethods}
+          loyaltyEnabled={loyaltyEnabled}
+        />
       )}
     </div>
   );

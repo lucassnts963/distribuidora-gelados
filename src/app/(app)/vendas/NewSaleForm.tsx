@@ -15,12 +15,14 @@ export function NewSaleForm({
   prices,
   costs,
   paymentMethods,
+  loyaltyEnabled,
 }: {
   variants: Variant[];
   contacts: Contact[];
   prices: Record<string, Price>;
   costs: Record<string, number>;
   paymentMethods: PaymentMethod[];
+  loyaltyEnabled: boolean;
 }) {
   const [state, action, pending] = useActionState(createSaleAction, null);
   const [channel, setChannel] = useState<"retail" | "wholesale">("wholesale");
@@ -67,6 +69,14 @@ export function NewSaleForm({
         prices={priceMap}
         costs={costMap}
       />
+      {loyaltyEnabled && (
+        <input
+          name="redeem_points"
+          className="inp"
+          inputMode="numeric"
+          placeholder="Usar pontos de fidelidade (opcional)"
+        />
+      )}
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button className="btn-primary w-full" disabled={pending}>
         {pending ? "Registrando…" : "Registrar venda"}

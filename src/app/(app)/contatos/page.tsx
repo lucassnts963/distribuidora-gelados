@@ -1,5 +1,5 @@
 import { getSessionProfile } from "@/lib/auth";
-import { listContacts } from "@/lib/queries";
+import { listContacts, getLoyaltySettings, loyaltyBalances } from "@/lib/queries";
 import { Section, Empty } from "@/components/ui";
 import { NewContactForm } from "./NewContactForm";
 
@@ -8,7 +8,11 @@ export const dynamic = "force-dynamic";
 export default async function ContatosPage() {
   const profile = await getSessionProfile();
   if (!profile) return null;
-  const contacts = await listContacts(profile.org.id);
+  const [contacts, loyaltySettings, balances] = await Promise.all([
+    listContacts(profile.org.id),
+    getLoyaltySettings(profile.org.id),
+    loyaltyBalances(profile.org.id),
+  ]);
 
   return (
     <main>
@@ -25,7 +29,12 @@ export default async function ContatosPage() {
           <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {contacts.map((c) => (
               <li key={c.id} className="card p-3">
-                <div className="font-semibold">{c.name}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-semibold">{c.name}</div>
+                  {loyaltySettings.enabled && (
+                    <span className="chip text-[10px]">{balances.get(c.id) ?? 0} pts</span>
+                  )}
+                </div>
                 <div className="text-xs muted">
                   {c.kind}
                   {c.phone ? ` · ${c.phone}` : ""}

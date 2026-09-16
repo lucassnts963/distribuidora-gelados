@@ -6,6 +6,7 @@ import { getSessionProfile } from "@/lib/auth";
 import { recalcVariantCost } from "@/lib/costing";
 import { parseItems } from "@/lib/formItems";
 import { reverseSale } from "@/lib/reversals";
+import { getLoyaltySettings, loyaltyBalance } from "@/lib/queries";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -22,7 +23,27 @@ export async function createSaleAction(_: unknown, form: FormData) {
   if (!items.length) return { error: "Adicione ao menos um item." };
 
   const supabase = await createClient();
-  const total = items.reduce((sum, i) => sum + i.qty * i.cents, 0);
+  const rawTotal = items.reduce((sum, i) => sum + i.qty * i.cents, 0);
+
+  // Fidelidade: resgate de pontos desconta do total ANTES de calcular
+  // comissão/taxa, que precisam refletir o valor de verdade cobrado do
+  // cliente — mesmo princípio de congelar tudo no momento da venda.
+  let redeemPoints = 0;
+  let redeemCents = 0;
+  let loyalty: Awaited<ReturnType<typeof getLoyaltySettings>> | null = null;
+  if (contactId) {
+    loyalty = await getLoyaltySettings(profile.org.id);
+    if (loyalty.enabled && loyalty.redeem_cents_per_point > 0) {
+      const requested = Number(s(form, "redeem_points").replace(",", ".")) || 0;
+      if (requested > 0) {
+        const balance = await loyaltyBalance(profile.org.id, contactId);
+        const maxByTotal = Math.floor(rawTotal / loyalty.redeem_cents_per_point);
+        redeemPoints = Math.max(0, Math.min(requested, balance, maxByTotal));
+        redeemCents = Math.round(redeemPoints * loyalty.redeem_cents_per_point);
+      }
+    }
+  }
+  const total = rawTotal - redeemCents;
 
   // Comissão congelada no momento da venda — mesmo princípio do custo
   // médio e do preço de pedido: mudar a taxa do vendedor depois não pode
@@ -90,8 +111,22 @@ export async function createSaleAction(_: unknown, form: FormData) {
 
   await Promise.all(items.map((i) => recalcVariantCost(profile.org.id, i.variantId)));
 
+  if (contactId && loyalty?.enabled) {
+    const rate = channel === "wholesale" ? loyalty.points_per_100_wholesale : loyalty.points_per_100_retail;
+    const pointsEarned = rate > 0 ? Math.floor((total / 100) * rate) : 0;
+    const ledgerRows: { org_id: string; contact_id: string; order_id: string; points: number }[] = [];
+    if (pointsEarned > 0) {
+      ledgerRows.push({ org_id: profile.org.id, contact_id: contactId, order_id: order.id, points: pointsEarned });
+    }
+    if (redeemPoints > 0) {
+      ledgerRows.push({ org_id: profile.org.id, contact_id: contactId, order_id: order.id, points: -redeemPoints });
+    }
+    if (ledgerRows.length) await supabase.from("loyalty_ledger").insert(ledgerRows);
+  }
+
   revalidatePath("/vendas");
   revalidatePath("/estoque");
+  revalidatePath("/contatos");
   return { ok: true };
 }
 

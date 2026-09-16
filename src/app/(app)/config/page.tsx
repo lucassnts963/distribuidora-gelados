@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSessionProfile } from "@/lib/auth";
+import { getLoyaltySettings } from "@/lib/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Section } from "@/components/ui";
 import { signOutAction } from "@/app/actions";
@@ -7,6 +8,7 @@ import { InviteMemberForm } from "./InviteMemberForm";
 import { CommissionForm } from "./CommissionForm";
 import { LogoUploadForm } from "./LogoUploadForm";
 import { CatalogSlugForm } from "./CatalogSlugForm";
+import { LoyaltySettingsForm } from "./LoyaltySettingsForm";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +35,10 @@ export default async function ConfigPage() {
   const profile = await getSessionProfile();
   if (!profile) return null;
 
-  const members = await listMembers(profile.org.id);
+  const [members, loyaltySettings] = await Promise.all([
+    listMembers(profile.org.id),
+    getLoyaltySettings(profile.org.id),
+  ]);
 
   return (
     <main>
@@ -96,6 +101,14 @@ export default async function ConfigPage() {
           {profile.role === "admin" && <InviteMemberForm />}
         </div>
       </Section>
+
+      {profile.role === "admin" && (
+        <Section title="Fidelidade">
+          <div className="card p-4">
+            <LoyaltySettingsForm settings={loyaltySettings} />
+          </div>
+        </Section>
+      )}
 
       <Section title="Conta">
         <div className="card space-y-3 p-4 text-sm">

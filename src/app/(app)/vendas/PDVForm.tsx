@@ -14,12 +14,14 @@ export function PDVForm({
   contacts,
   prices,
   paymentMethods,
+  loyaltyEnabled,
 }: {
   variants: Variant[];
   contacts: Contact[];
   prices: Record<string, Price>;
   costs: Record<string, number>;
   paymentMethods: PaymentMethod[];
+  loyaltyEnabled: boolean;
 }) {
   const [state, action, pending] = useActionState(createSaleAction, null);
   const [channel, setChannel] = useState<"retail" | "wholesale">("wholesale");
@@ -150,6 +152,14 @@ export function PDVForm({
 
       <div className="card sticky bottom-16 space-y-2 p-3 lg:static">
         <div className="text-sm font-semibold">Carrinho</div>
+        {loyaltyEnabled && (
+          <input
+            name="redeem_points"
+            className="inp"
+            inputMode="numeric"
+            placeholder="Usar pontos de fidelidade (opcional)"
+          />
+        )}
         {!cartEntries.length ? (
           <p className="text-xs muted">Toque num produto pra adicionar.</p>
         ) : (

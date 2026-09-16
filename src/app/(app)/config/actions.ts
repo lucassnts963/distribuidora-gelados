@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { toCents } from "@/lib/format";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -118,4 +119,38 @@ export async function setOrgLogoAction(form: FormData) {
   const supabase = await createClient();
   await supabase.from("organizations").update({ logo_url: logoUrl || null }).eq("id", profile.org.id);
   revalidatePath("/config");
+}
+
+function toNumber(v: string) {
+  const n = Number(v.replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+export async function saveLoyaltySettingsAction(_: unknown, form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile || profile.role !== "admin") return { error: "Só um administrador pode mudar isso." };
+
+  const enabled = s(form, "enabled") === "on";
+  const pointsWholesale = toNumber(s(form, "points_per_100_wholesale"));
+  const pointsRetail = toNumber(s(form, "points_per_100_retail"));
+  // Campo no formulário é em reais (ex: "0,50"); a coluna guarda em centavos,
+  // mesmo padrão de todo valor monetário no resto do app.
+  const redeemCentsPerPoint = toCents(s(form, "redeem_cents_per_point"));
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("loyalty_settings").upsert(
+    {
+      org_id: profile.org.id,
+      enabled,
+      points_per_100_wholesale: pointsWholesale,
+      points_per_100_retail: pointsRetail,
+      redeem_cents_per_point: redeemCentsPerPoint,
+    },
+    { onConflict: "org_id" }
+  );
+  if (error) return { error: "Não deu pra salvar: " + error.message };
+
+  revalidatePath("/config");
+  revalidatePath("/vendas");
+  return { ok: true };
 }

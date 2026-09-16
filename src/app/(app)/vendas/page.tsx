@@ -1,5 +1,13 @@
 import { getSessionProfile } from "@/lib/auth";
-import { listSales, orgStock, listContacts, listOrgPrices, listVariantCosts, listPaymentMethods } from "@/lib/queries";
+import {
+  listSales,
+  orgStock,
+  listContacts,
+  listOrgPrices,
+  listVariantCosts,
+  listPaymentMethods,
+  getLoyaltySettings,
+} from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { fmtDate } from "@/lib/format";
@@ -12,13 +20,14 @@ export default async function VendasPage() {
   const profile = await getSessionProfile();
   if (!profile) return null;
 
-  const [sales, stock, contacts, prices, costs, paymentMethods] = await Promise.all([
+  const [sales, stock, contacts, prices, costs, paymentMethods, loyaltySettings] = await Promise.all([
     listSales(profile.org.id),
     orgStock(profile.org.id),
     listContacts(profile.org.id),
     listOrgPrices(profile.org.id),
     listVariantCosts(profile.org.id),
     listPaymentMethods(profile.org.id),
+    getLoyaltySettings(profile.org.id),
   ]);
   const variants = stock
     .filter((s) => s.qty > 0)
@@ -76,6 +85,7 @@ export default async function VendasPage() {
           prices={Object.fromEntries(prices)}
           costs={Object.fromEntries(costs)}
           paymentMethods={paymentMethods.filter((pm) => pm.active)}
+          loyaltyEnabled={loyaltySettings.enabled}
         />
       </Section>
     </main>

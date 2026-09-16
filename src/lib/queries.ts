@@ -405,6 +405,46 @@ export async function listExpenses(orgId: string, limit = 20) {
   return data ?? [];
 }
 
+export async function getLoyaltySettings(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("loyalty_settings")
+    .select("enabled, points_per_100_wholesale, points_per_100_retail, redeem_cents_per_point")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  return (
+    data ?? {
+      enabled: false,
+      points_per_100_wholesale: 0,
+      points_per_100_retail: 0,
+      redeem_cents_per_point: 0,
+    }
+  );
+}
+
+/** Saldo de pontos de um contato — soma do ledger (positivo = ganho, negativo = resgatado). */
+export async function loyaltyBalance(orgId: string, contactId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("loyalty_ledger")
+    .select("points")
+    .eq("org_id", orgId)
+    .eq("contact_id", contactId);
+  return (data ?? []).reduce((sum, r) => sum + Number(r.points), 0);
+}
+
+/** Saldo de pontos de todos os contatos da organização, pra listar em /contatos. */
+export async function loyaltyBalances(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase.from("loyalty_ledger").select("contact_id, points").eq("org_id", orgId);
+  const byContact = new Map<string, number>();
+  for (const r of data ?? []) {
+    const key = r.contact_id as string;
+    byContact.set(key, (byContact.get(key) ?? 0) + Number(r.points));
+  }
+  return byContact;
+}
+
 export async function listPaymentMethods(orgId: string) {
   const supabase = await createClient();
   const { data } = await supabase
