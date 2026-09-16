@@ -7,6 +7,7 @@ import { toggleVariantAction } from "../actions";
 import { AddVariantForm } from "./AddVariantForm";
 import { CustomValuesForm } from "./CustomValuesForm";
 import { RecipeForm } from "./RecipeForm";
+import { PhotoUploadForm } from "./PhotoUploadForm";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,12 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {product.product_variants.map((v) => (
               <li key={v.id} className="card space-y-2 p-3">
+                <PhotoUploadForm
+                  productId={product.id}
+                  variantId={v.id}
+                  orgId={profile.org.id}
+                  photoUrl={v.photo_url}
+                />
                 <div className="flex items-center justify-between gap-2">
                   <div className="font-semibold">{v.name}</div>
                   <form action={toggleVariantAction}>

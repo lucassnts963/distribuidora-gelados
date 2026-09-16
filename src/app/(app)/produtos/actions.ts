@@ -98,6 +98,20 @@ export async function toggleVariantAction(form: FormData) {
   revalidatePath(`/produtos/${productId}`);
 }
 
+/**
+ * O upload em si acontece no client (bucket product-photos, policy de
+ * storage já garante que só a própria organização escreve no próprio
+ * caminho) — isso só grava a URL pública já pronta na variação.
+ */
+export async function setVariantPhotoAction(form: FormData) {
+  const id = s(form, "id");
+  const productId = s(form, "product_id");
+  const photoUrl = s(form, "photo_url");
+  const supabase = await createClient();
+  await supabase.from("product_variants").update({ photo_url: photoUrl || null }).eq("id", id);
+  revalidatePath(`/produtos/${productId}`);
+}
+
 export async function addRecipeItemAction(_: unknown, form: FormData) {
   const profile = await getSessionProfile();
   if (!profile) return { error: "Sessão inválida." };

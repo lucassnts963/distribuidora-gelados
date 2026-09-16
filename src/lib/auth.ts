@@ -9,7 +9,16 @@ export type SessionProfile = {
   role: "admin" | "staff" | "vendedor";
   commissionRateBp: number | null;
   notificationsSeenAt: string | null;
-  org: { id: string; name: string; document: string | null; inviteCode: string; active: boolean; plan: string };
+  org: {
+    id: string;
+    name: string;
+    document: string | null;
+    inviteCode: string;
+    active: boolean;
+    plan: string;
+    logoUrl: string | null;
+    catalogSlug: string | null;
+  };
   capabilities: {
     hasOwnProducts: boolean;
     supplierPartnerCount: number;
@@ -33,7 +42,7 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "role, full_name, commission_rate_bp, notifications_seen_at, organizations(id, name, document, invite_code, active, plan)"
+      "role, full_name, commission_rate_bp, notifications_seen_at, organizations(id, name, document, invite_code, active, plan, logo_url, catalog_slug)"
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -46,6 +55,8 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     invite_code: string;
     active: boolean;
     plan: string;
+    logo_url: string | null;
+    catalog_slug: string | null;
   };
 
   const [{ count: productsCount }, { count: supplierCount }, { count: buyerCount }, disabledModules] =
@@ -81,6 +92,8 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
       inviteCode: org.invite_code,
       active: org.active,
       plan: org.plan,
+      logoUrl: org.logo_url,
+      catalogSlug: org.catalog_slug,
     },
     capabilities: {
       hasOwnProducts: (productsCount ?? 0) > 0,

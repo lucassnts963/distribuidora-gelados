@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSessionProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -74,5 +75,47 @@ export async function setCommissionRateAction(form: FormData) {
   if (!member || member.org_id !== profile.org.id) return;
 
   await admin.from("profiles").update({ commission_rate_bp: rateBp }).eq("id", memberId);
+  revalidatePath("/config");
+}
+
+function slugify(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+/**
+ * organizations_update (RLS) já libera isso pra admin da própria
+ * organização — sem precisar de service role aqui.
+ */
+export async function saveCatalogSlugAction(_: unknown, form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile || profile.role !== "admin") return { error: "Só um administrador pode mudar isso." };
+
+  const raw = s(form, "catalog_slug");
+  const slug = raw ? slugify(raw) : null;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("organizations").update({ catalog_slug: slug }).eq("id", profile.org.id);
+  if (error) {
+    if (error.code === "23505") return { error: "Esse endereço já está em uso por outra organização." };
+    return { error: "Não deu pra salvar: " + error.message };
+  }
+
+  revalidatePath("/config");
+  return { ok: true, slug };
+}
+
+export async function setOrgLogoAction(form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile || profile.role !== "admin") return;
+
+  const logoUrl = s(form, "logo_url");
+  const supabase = await createClient();
+  await supabase.from("organizations").update({ logo_url: logoUrl || null }).eq("id", profile.org.id);
   revalidatePath("/config");
 }

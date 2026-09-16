@@ -5,6 +5,8 @@ import { Section } from "@/components/ui";
 import { signOutAction } from "@/app/actions";
 import { InviteMemberForm } from "./InviteMemberForm";
 import { CommissionForm } from "./CommissionForm";
+import { LogoUploadForm } from "./LogoUploadForm";
+import { CatalogSlugForm } from "./CatalogSlugForm";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +54,15 @@ export default async function ConfigPage() {
             <span className="chip font-mono">{profile.org.inviteCode}</span>
           </div>
         </div>
+        {profile.role === "admin" && (
+          <div className="card mt-3 space-y-4 p-4 text-sm">
+            <div>
+              <div className="lbl mb-1">Logo</div>
+              <LogoUploadForm orgId={profile.org.id} logoUrl={profile.org.logoUrl} />
+            </div>
+            <CatalogSlugForm currentSlug={profile.org.catalogSlug} />
+          </div>
+        )}
       </Section>
 
       <Section title="Equipe">

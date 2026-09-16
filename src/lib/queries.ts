@@ -36,7 +36,7 @@ export async function getProduct(orgId: string, productId: string) {
   const supabase = await createClient();
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, sku, description, active, product_variants(id, name, sku, active)")
+    .select("id, name, sku, description, active, product_variants(id, name, sku, active, photo_url)")
     .eq("owner_org_id", orgId)
     .eq("id", productId)
     .maybeSingle();
@@ -178,6 +178,53 @@ export async function listOrgPrices(orgId: string) {
     .select("variant_id, wholesale_cents, retail_cents, min_qty, active")
     .eq("org_id", orgId);
   return new Map((data ?? []).map((p) => [p.variant_id as string, p]));
+}
+
+/**
+ * Vitrine pública (sem sessão): organização pelo catalog_slug + variações
+ * dos produtos que ela mesma fabrica, com preço de venda definido.
+ * Depende das policies de RLS "..._select_catalog" (anon), não de auth.
+ */
+export async function getPublicCatalog(slug: string) {
+  const supabase = await createClient();
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("id, name, logo_url")
+    .eq("catalog_slug", slug)
+    .eq("active", true)
+    .maybeSingle();
+  if (!org) return null;
+
+  const { data: products } = await supabase
+    .from("products")
+    .select("id, name, product_variants(id, name, photo_url, active)")
+    .eq("owner_org_id", org.id)
+    .eq("active", true);
+
+  const { data: prices } = await supabase
+    .from("org_variant_prices")
+    .select("variant_id, retail_cents")
+    .eq("org_id", org.id)
+    .eq("active", true)
+    .not("retail_cents", "is", null);
+  const priceByVariant = new Map((prices ?? []).map((p) => [p.variant_id as string, p.retail_cents as number]));
+
+  const items = (products ?? []).flatMap((p) =>
+    (p.product_variants ?? [])
+      .filter((v) => v.active && priceByVariant.has(v.id))
+      .map((v) => ({
+        variantId: v.id as string,
+        productName: p.name as string,
+        variantName: v.name as string,
+        photoUrl: v.photo_url as string | null,
+        priceCents: priceByVariant.get(v.id)!,
+      }))
+  );
+
+  return {
+    org: { id: org.id as string, name: org.name as string, logoUrl: org.logo_url as string | null },
+    items,
+  };
 }
 
 /** Custo médio vigente por variação (pra alertar se o preço de venda ficar abaixo do custo). */
