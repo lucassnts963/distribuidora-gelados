@@ -398,7 +398,7 @@ export async function listExpenses(orgId: string, limit = 20) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("expenses")
-    .select("id, category, description, occurred_on, amount_cents")
+    .select("id, category, description, occurred_on, amount_cents, cost_type")
     .eq("org_id", orgId)
     .order("occurred_on", { ascending: false })
     .limit(limit);
@@ -469,6 +469,62 @@ export async function periodSummary(orgId: string, from: string, to: string) {
     cashIn,
     cashOut,
     cashFlow: cashIn - cashOut,
+  };
+}
+
+/**
+ * Ponto de equilíbrio: custo variável por venda já sai congelado por
+ * pedido (CMV via inventory_movements, comissão e taxa de pagamento via
+ * orders) — só falta separar despesa fixa de variável (expenses.cost_type)
+ * pra fechar a conta. Fórmula simples de propósito: sem desvio-padrão,
+ * sem nível de serviço — não superdimensionar pra um negócio pequeno.
+ */
+export async function breakEven(orgId: string, from: string, to: string) {
+  const supabase = await createClient();
+
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("total_cents, fee_cents, commission_cents")
+    .eq("supplier_org_id", orgId)
+    .eq("status", "delivered")
+    .gte("created_at", from)
+    .lte("created_at", to + "T23:59:59");
+
+  const { data: saleMovements } = await supabase
+    .from("inventory_movements")
+    .select("qty, unit_cost_cents")
+    .eq("org_id", orgId)
+    .eq("movement_type", "sale")
+    .gte("occurred_on", from)
+    .lte("occurred_on", to);
+
+  const { data: fixedExpenses } = await supabase
+    .from("expenses")
+    .select("amount_cents")
+    .eq("org_id", orgId)
+    .eq("cost_type", "fixed")
+    .gte("occurred_on", from)
+    .lte("occurred_on", to);
+
+  const revenue = (orders ?? []).reduce((sum, o) => sum + o.total_cents, 0);
+  const feesTotal = (orders ?? []).reduce((sum, o) => sum + (o.fee_cents ?? 0), 0);
+  const commissionTotal = (orders ?? []).reduce((sum, o) => sum + (o.commission_cents ?? 0), 0);
+  const cmv = (saleMovements ?? []).reduce((sum, m) => sum + Math.abs(Number(m.qty)) * m.unit_cost_cents, 0);
+  const fixedCostsTotal = (fixedExpenses ?? []).reduce((sum, e) => sum + e.amount_cents, 0);
+
+  const variableCosts = cmv + feesTotal + commissionTotal;
+  const contributionMargin = revenue - variableCosts;
+  const contributionMarginRatio = revenue > 0 ? contributionMargin / revenue : 0;
+  const breakEvenRevenue = contributionMarginRatio > 0 ? fixedCostsTotal / contributionMarginRatio : null;
+
+  return {
+    revenue,
+    variableCosts,
+    contributionMargin,
+    contributionMarginRatio,
+    fixedCostsTotal,
+    breakEvenRevenue,
+    distanceToBreakEven: breakEvenRevenue !== null ? revenue - breakEvenRevenue : null,
   };
 }
 

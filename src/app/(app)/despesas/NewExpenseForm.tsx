@@ -11,7 +11,13 @@ export function NewExpenseForm() {
         <input name="category" className="inp" placeholder="Categoria (ex: aluguel)" required />
         <input name="occurred_on" type="date" className="inp" />
       </div>
-      <input name="description" className="inp" placeholder="Descrição (opcional)" />
+      <div className="flex gap-2">
+        <select name="cost_type" className="inp" defaultValue="variable">
+          <option value="variable">Variável</option>
+          <option value="fixed">Fixa</option>
+        </select>
+        <input name="description" className="inp" placeholder="Descrição (opcional)" />
+      </div>
       <input name="amount" className="inp" inputMode="decimal" placeholder="Valor (R$)" required />
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button className="btn-primary w-full" disabled={pending}>

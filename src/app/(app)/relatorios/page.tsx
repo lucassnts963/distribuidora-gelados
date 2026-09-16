@@ -6,6 +6,7 @@ import {
   listActiveSuppliers,
   supplierAvailableStock,
   reorderSuggestions,
+  breakEven,
 } from "@/lib/queries";
 import { Section, Empty, Stat } from "@/components/ui";
 import { monthOf, monthStart, monthEnd, fmtMonth } from "@/lib/format";
@@ -20,12 +21,13 @@ export default async function RelatoriosPage() {
   const from = monthStart(month);
   const to = monthEnd(month);
 
-  const [summary, channels, stock, suppliers, reorders] = await Promise.all([
+  const [summary, channels, stock, suppliers, reorders, equilibrium] = await Promise.all([
     periodSummary(profile.org.id, from, to),
     channelBreakdown(profile.org.id, from, to),
     stockValue(profile.org.id),
     listActiveSuppliers(profile.org.id),
     reorderSuggestions(profile.org.id),
+    breakEven(profile.org.id, from, to),
   ]);
 
   const supplierStocks = await Promise.all(
@@ -58,6 +60,36 @@ export default async function RelatoriosPage() {
           <Stat label="Atacado" value={fmt(channels.wholesale.revenue)} sub={`${channels.wholesale.orders} venda(s)`} />
           <Stat label="Varejo" value={fmt(channels.retail.revenue)} sub={`${channels.retail.orders} venda(s)`} />
         </div>
+      </Section>
+
+      <Section title="Ponto de equilíbrio">
+        {equilibrium.revenue === 0 && equilibrium.fixedCostsTotal === 0 ? (
+          <Empty>Sem vendas ou custos fixos lançados neste mês ainda.</Empty>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Stat label="Custos fixos do mês" value={fmt(equilibrium.fixedCostsTotal)} />
+              <Stat label="Margem de contribuição" value={fmt(equilibrium.contributionMargin)} />
+              <Stat label="Margem (%)" value={`${(equilibrium.contributionMarginRatio * 100).toFixed(1)}%`} />
+              <Stat
+                label="Receita de equilíbrio"
+                value={equilibrium.breakEvenRevenue !== null ? fmt(equilibrium.breakEvenRevenue) : "—"}
+              />
+            </div>
+            {equilibrium.breakEvenRevenue === null ? (
+              <p className="mt-2 text-xs text-amber-600">
+                Margem de contribuição zero ou negativa neste mês — não dá pra calcular um ponto de
+                equilíbrio em receita (o custo variável já come tudo que entra).
+              </p>
+            ) : (
+              <p className="mt-2 text-xs muted">
+                {equilibrium.distanceToBreakEven! >= 0
+                  ? `Já passou do ponto de equilíbrio em ${fmt(equilibrium.distanceToBreakEven!)}.`
+                  : `Falta ${fmt(-equilibrium.distanceToBreakEven!)} de receita pra bater o ponto de equilíbrio do mês.`}
+              </p>
+            )}
+          </>
+        )}
       </Section>
 
       <Section title="Estoque">

@@ -17,6 +17,7 @@ export async function createExpenseAction(_: unknown, form: FormData) {
   const description = s(form, "description");
   const occurredOn = s(form, "occurred_on") || today();
   const amount = toCents(s(form, "amount"));
+  const costType = s(form, "cost_type") === "fixed" ? "fixed" : "variable";
   if (!category) return { error: "Informe a categoria." };
   if (!amount) return { error: "Informe o valor." };
 
@@ -27,6 +28,7 @@ export async function createExpenseAction(_: unknown, form: FormData) {
     description: description || null,
     occurred_on: occurredOn,
     amount_cents: amount,
+    cost_type: costType,
   });
   if (error) return { error: "Não deu pra lançar: " + error.message };
 

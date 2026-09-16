@@ -24,7 +24,10 @@ export default async function DespesasPage() {
             {expenses.map((e) => (
               <li key={e.id} className="card flex items-center justify-between p-3 text-sm">
                 <div>
-                  <div className="font-semibold">{e.category}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{e.category}</span>
+                    <span className="chip text-[10px]">{e.cost_type === "fixed" ? "Fixa" : "Variável"}</span>
+                  </div>
                   <div className="text-xs muted">
                     {fmtDate(e.occurred_on)}
                     {e.description ? ` · ${e.description}` : ""}
