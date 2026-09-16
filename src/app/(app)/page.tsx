@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSessionProfile } from "@/lib/auth";
 import { Section, Empty, Stat } from "@/components/ui";
-import { MODULES, type ModuleGroup } from "@/lib/modules";
+import { MODULES, VENDEDOR_ALLOWED_HREFS, type ModuleGroup } from "@/lib/modules";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,10 @@ export default async function PainelPage() {
 
       {GROUP_ORDER.map((group) => {
         const items = MODULES.filter(
-          (m) => m.group === group && (m.key === null || !profile.disabledModules.has(m.key))
+          (m) =>
+            m.group === group &&
+            (m.key === null || !profile.disabledModules.has(m.key)) &&
+            (profile.role !== "vendedor" || VENDEDOR_ALLOWED_HREFS.includes(m.href))
         );
         if (!items.length) return null;
         return (

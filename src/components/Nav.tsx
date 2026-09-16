@@ -4,7 +4,7 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { GiroMark } from "@/components/GiroMark";
-import { MODULES, moduleByHref, type ModuleGroup, type ModuleKey } from "@/lib/modules";
+import { MODULES, moduleByHref, VENDEDOR_ALLOWED_HREFS, type ModuleGroup, type ModuleKey } from "@/lib/modules";
 
 type Capabilities = {
   hasOwnProducts: boolean;
@@ -55,14 +55,20 @@ export default function Nav({
   capabilities,
   unseenCount = 0,
   disabledModules = [],
+  role,
 }: {
   capabilities: Capabilities;
   unseenCount?: number;
   disabledModules?: ModuleKey[];
+  role?: "admin" | "staff" | "vendedor";
 }) {
   const pathname = usePathname();
   const canSell = capabilities.hasOwnProducts || capabilities.buyerPartnerCount > 0;
-  const isEnabled = (m: { key: ModuleKey | null }) => m.key === null || !disabledModules.includes(m.key);
+  // Papel vendedor é sempre um subconjunto do que a organização liberou,
+  // nunca expande — combina os dois filtros, módulo E papel.
+  const isEnabled = (m: { key: ModuleKey | null; href: string }) =>
+    (m.key === null || !disabledModules.includes(m.key)) &&
+    (role !== "vendedor" || VENDEDOR_ALLOWED_HREFS.includes(m.href));
 
   // A barra do celular filtra por capacidade porque só cabem as abas de uso
   // mais frequente — é triagem de espaço. A sidebar não filtra por

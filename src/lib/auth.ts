@@ -6,7 +6,8 @@ export type SessionProfile = {
   userId: string;
   email: string | null;
   fullName: string | null;
-  role: "admin" | "staff";
+  role: "admin" | "staff" | "vendedor";
+  commissionRateBp: number | null;
   notificationsSeenAt: string | null;
   org: { id: string; name: string; document: string | null; inviteCode: string; active: boolean; plan: string };
   capabilities: {
@@ -31,7 +32,9 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, full_name, notifications_seen_at, organizations(id, name, document, invite_code, active, plan)")
+    .select(
+      "role, full_name, commission_rate_bp, notifications_seen_at, organizations(id, name, document, invite_code, active, plan)"
+    )
     .eq("id", user.id)
     .maybeSingle();
 
@@ -68,7 +71,8 @@ export async function getSessionProfile(): Promise<SessionProfile | null> {
     userId: user.id,
     email: user.email ?? null,
     fullName: profile.full_name,
-    role: profile.role as "admin" | "staff",
+    role: profile.role as "admin" | "staff" | "vendedor",
+    commissionRateBp: profile.commission_rate_bp,
     notificationsSeenAt: profile.notifications_seen_at,
     org: {
       id: org.id,

@@ -23,6 +23,14 @@ export async function createSaleAction(_: unknown, form: FormData) {
   const supabase = await createClient();
   const total = items.reduce((sum, i) => sum + i.qty * i.cents, 0);
 
+  // Comissão congelada no momento da venda — mesmo princípio do custo
+  // médio e do preço de pedido: mudar a taxa do vendedor depois não pode
+  // alterar venda já feita.
+  const commissionCents =
+    profile.role === "vendedor" && profile.commissionRateBp
+      ? Math.round((total * profile.commissionRateBp) / 10000)
+      : null;
+
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
@@ -31,6 +39,7 @@ export async function createSaleAction(_: unknown, form: FormData) {
       status: "delivered",
       channel,
       total_cents: total,
+      commission_cents: commissionCents,
       created_by: profile.userId,
       decided_at: new Date().toISOString(),
     })

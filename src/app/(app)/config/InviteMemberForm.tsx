@@ -19,6 +19,7 @@ export function InviteMemberForm() {
         <label className="lbl">Papel</label>
         <select name="role" className="inp" defaultValue="staff">
           <option value="staff">Operador</option>
+          <option value="vendedor">Vendedor</option>
           <option value="admin">Administrador</option>
         </select>
       </div>

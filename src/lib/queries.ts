@@ -377,6 +377,39 @@ export async function orgStock(orgId: string) {
   return Array.from(byVariant, ([variantId, v]) => ({ variantId, ...v }));
 }
 
+/** Comissão por vendedor no período — soma de orders.commission_cents já congelado por venda. */
+export async function listCommissions(orgId: string, from: string, to: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select("created_by, total_cents, commission_cents")
+    .eq("supplier_org_id", orgId)
+    .eq("status", "delivered")
+    .not("commission_cents", "is", null)
+    .gte("created_at", from)
+    .lte("created_at", to + "T23:59:59");
+  if (!data?.length) return [];
+
+  const vendorIds = [...new Set(data.map((o) => o.created_by))];
+  const { data: vendors } = await supabase.from("profiles").select("id, full_name").in("id", vendorIds);
+  const nameById = new Map((vendors ?? []).map((v) => [v.id, v.full_name]));
+
+  const byVendor = new Map<string, { salesCents: number; commissionCents: number; salesCount: number }>();
+  for (const o of data) {
+    const cur = byVendor.get(o.created_by) ?? { salesCents: 0, commissionCents: 0, salesCount: 0 };
+    cur.salesCents += o.total_cents;
+    cur.commissionCents += o.commission_cents ?? 0;
+    cur.salesCount += 1;
+    byVendor.set(o.created_by, cur);
+  }
+
+  return Array.from(byVendor, ([vendorId, v]) => ({
+    vendorId,
+    vendorName: nameById.get(vendorId) ?? "—",
+    ...v,
+  })).sort((a, b) => b.commissionCents - a.commissionCents);
+}
+
 /**
  * Módulos desligados pra essa organização — sem linha em org_modules pra
  * um módulo, ele está liberado (grandfathering). Só as exceções vêm daqui.

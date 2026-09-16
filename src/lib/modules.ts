@@ -69,3 +69,11 @@ export function moduleByHref(href: string): AppModule {
 export const TOGGLEABLE_MODULES = MODULES.filter(
   (m): m is AppModule & { key: ModuleKey } => m.key !== null
 );
+
+/**
+ * Papel vendedor é sempre um subconjunto do que a organização liberou
+ * (Parte M), nunca expande — vende, vê o próprio estoque, e o básico de
+ * navegação. Sem Produção/Insumos/Compras/Despesas/Relatórios/Config de
+ * campos personalizados etc.
+ */
+export const VENDEDOR_ALLOWED_HREFS = ["/", "/notificacoes", "/vendas", "/estoque", "/config", "/ajuda"];
