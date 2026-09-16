@@ -129,3 +129,16 @@ docker compose up -d --build
 Só builda a aplicação — o banco é o Supabase gerenciado, não tem volume
 local. Veja `docker-compose.yml`/`Dockerfile`. Primeira versão do deploy
 real é na Vercel; o Docker Compose fica pronto pra uma futura VPS própria.
+
+## Deploy na Vercel
+
+A integração usada nesta sessão não tinha permissão pra criar o projeto
+direto (erro 403), então falta esse passo manual:
+
+1. [vercel.com/new](https://vercel.com/new) → importar `lucassnts963/distribuidora-gelados` (o framework Next.js é detectado sozinho).
+2. Antes de clicar em Deploy, decidir o **branch de produção**: por padrão a Vercel usa `main`, mas o código novo (essa reescrita inteira) está em `claude/supabase-multi-tenant` — `main` ainda está vazio/desatualizado. Ou muda a branch de produção do projeto nas configurações da Vercel pra `claude/supabase-multi-tenant`, ou faz o merge desse branch em `main` primeiro (há também um PR #1 antigo, da versão SQLite anterior — provavelmente vale fechar ele já que essa reescrita o substitui).
+3. Em **Environment Variables**, adicionar (Production e Preview):
+   - `NEXT_PUBLIC_SUPABASE_URL` = `https://gluwyubhmdxwafgotaxa.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `sb_publishable_fZX5eRDyNTT8bsVq9kVqnA_XNyZ_ZXn`
+   - `SUPABASE_SERVICE_ROLE_KEY` = (pegue em Project Settings → API do Supabase; só necessária se/quando o convite de usuário via Admin API for implementado — pode ficar de fora por enquanto)
+4. Deploy. Depois disso, todo push no branch de produção redeploya sozinho.
