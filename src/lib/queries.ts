@@ -103,7 +103,7 @@ export async function listProductionBatches(orgId: string) {
   const { data } = await supabase
     .from("production_batches")
     .select(
-      "id, product_id, variant_id, batch_number, planned_qty, produced_qty, status, started_at, finished_at, created_at, products(name), product_variants(name)"
+      "id, product_id, variant_id, batch_number, planned_qty, produced_qty, status, started_at, finished_at, created_at, reverted_at, products(name), product_variants(name)"
     )
     .eq("owner_org_id", orgId)
     .order("created_at", { ascending: false });
@@ -239,7 +239,7 @@ export async function listSales(orgId: string, limit = 20) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("orders")
-    .select("id, channel, total_cents, created_at, contact:contacts(name)")
+    .select("id, channel, total_cents, created_at, reverted_at, contact:contacts(name)")
     .eq("supplier_org_id", orgId)
     .eq("status", "delivered")
     .order("created_at", { ascending: false })

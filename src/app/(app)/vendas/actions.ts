@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
 import { recalcVariantCost } from "@/lib/costing";
 import { parseItems } from "@/lib/formItems";
+import { reverseSale } from "@/lib/reversals";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -67,4 +68,16 @@ export async function createSaleAction(_: unknown, form: FormData) {
   revalidatePath("/vendas");
   revalidatePath("/estoque");
   return { ok: true };
+}
+
+export async function cancelSaleAction(form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile) return;
+  if (profile.role !== "admin") return;
+
+  const orderId = s(form, "id");
+  await reverseSale(orderId, profile.org.id);
+
+  revalidatePath("/vendas");
+  revalidatePath("/estoque");
 }

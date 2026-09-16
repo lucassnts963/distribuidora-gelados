@@ -25,7 +25,7 @@ import { createClient } from "./supabase/server";
 
 type Movement = {
   id: string;
-  movement_type: "production" | "purchase" | "sale" | "adjustment" | "loss";
+  movement_type: "production" | "purchase" | "sale" | "adjustment" | "loss" | "reversal";
   qty: number;
   unit_cost_cents: number;
   occurred_on: string;
@@ -35,6 +35,7 @@ type Movement = {
 const TYPE_RANK: Record<Movement["movement_type"], number> = {
   production: 0,
   purchase: 0,
+  reversal: 0,
   adjustment: 1,
   sale: 2,
   loss: 2,
@@ -63,7 +64,15 @@ export async function recalcVariantCostWith(supabase: SupabaseClient<any>, orgId
   const updates: { id: string; unit_cost_cents: number }[] = [];
 
   for (const m of movements) {
-    if (m.movement_type === "production" || m.movement_type === "purchase") {
+    // reversal de venda/perda entra qty>0 (devolve ao estoque pelo custo
+    // real que saiu) e cai aqui, igual producao/compra; reversal de
+    // producao/compra entra qty<0 e cai no else, precificado pela media
+    // vigente - o mesmo tratamento que sale/loss/adjustment ja tem.
+    if (
+      m.movement_type === "production" ||
+      m.movement_type === "purchase" ||
+      (m.movement_type === "reversal" && Number(m.qty) > 0)
+    ) {
       qty += Number(m.qty);
       value += Number(m.qty) * m.unit_cost_cents;
       last = m.unit_cost_cents;

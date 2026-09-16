@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
 import { toCents } from "@/lib/format";
 import { recalcVariantCost, recalcRawMaterialCost } from "@/lib/costing";
+import { reverseProductionBatch } from "@/lib/reversals";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -164,7 +165,8 @@ export async function completeBatchAction(_: unknown, form: FormData) {
     qty: producedQty,
     unit_cost_cents: unitCost,
     occurred_on: now.slice(0, 10),
-    reference_type: "manual",
+    reference_type: "production_batch",
+    reference_id: id,
   });
   if (moveError) return { error: "Movimento de estoque não foi lançado: " + moveError.message };
 
@@ -176,6 +178,19 @@ export async function completeBatchAction(_: unknown, form: FormData) {
   return insufficientMaterials.length
     ? { ok: true, warning: "Saldo insuficiente de: " + insufficientMaterials.join(", ") }
     : { ok: true };
+}
+
+export async function revertBatchAction(form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile) return;
+  if (profile.role !== "admin") return;
+
+  const batchId = s(form, "id");
+  await reverseProductionBatch(batchId, profile.org.id);
+
+  revalidatePath("/producao");
+  revalidatePath("/estoque");
+  revalidatePath("/insumos");
 }
 
 export async function createCapacityPlanAction(_: unknown, form: FormData) {

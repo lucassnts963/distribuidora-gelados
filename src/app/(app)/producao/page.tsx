@@ -5,7 +5,8 @@ import { fmtDate } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Modal } from "@/components/Modal";
 import { SubmitButton } from "@/components/SubmitButton";
-import { startBatchAction, cancelBatchAction } from "./actions";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { startBatchAction, cancelBatchAction, revertBatchAction } from "./actions";
 import { NewBatchForm } from "./NewBatchForm";
 import { CompleteBatchForm } from "./CompleteBatchForm";
 import { CapacityPlanForm } from "./CapacityPlanForm";
@@ -64,7 +65,7 @@ export default async function ProducaoPage() {
                                   {b.batch_number ? ` · ${b.batch_number}` : ""}
                                 </div>
                                 <div className="text-xs muted">
-                                  {statusLabel[b.status]}
+                                  {b.reverted_at ? "Revertido" : statusLabel[b.status]}
                                   {b.planned_qty ? ` · planejado ${b.planned_qty}` : ""}
                                   {b.produced_qty ? ` · produzido ${b.produced_qty}` : ""}
                                 </div>
@@ -82,6 +83,18 @@ export default async function ProducaoPage() {
                                     </SubmitButton>
                                   </form>
                                 </div>
+                              )}
+                              {b.status === "completed" && !b.reverted_at && profile.role === "admin" && (
+                                <form action={revertBatchAction}>
+                                  <input type="hidden" name="id" value={b.id} />
+                                  <ConfirmSubmitButton
+                                    className="btn-ghost"
+                                    pendingText="Revertendo…"
+                                    confirmMessage="Reverter essa produção? Só funciona se nada dela foi vendido ainda."
+                                  >
+                                    Reverter
+                                  </ConfirmSubmitButton>
+                                </form>
                               )}
                             </div>
                             {b.status === "in_progress" && (

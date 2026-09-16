@@ -1,8 +1,10 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listSales, orgStock, listContacts, listOrgPrices, listVariantCosts } from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { fmtDate } from "@/lib/format";
 import { NewSaleForm } from "./NewSaleForm";
+import { cancelSaleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -33,14 +35,32 @@ export default async function VendasPage() {
             {sales.map((sale) => {
               const contact = sale.contact as unknown as { name: string } | null;
               return (
-                <li key={sale.id} className="card flex items-center justify-between p-3 text-sm">
-                  <div>
-                    <div className="font-semibold">{contact?.name ?? "Venda avulsa"}</div>
-                    <div className="text-xs muted">
-                      {sale.channel === "wholesale" ? "Atacado" : "Varejo"} · {fmtDate(sale.created_at)}
+                <li key={sale.id} className="card space-y-2 p-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{contact?.name ?? "Venda avulsa"}</div>
+                      <div className="text-xs muted">
+                        {sale.channel === "wholesale" ? "Atacado" : "Varejo"} · {fmtDate(sale.created_at)}
+                        {sale.reverted_at && " · cancelada"}
+                      </div>
                     </div>
+                    <Money
+                      cents={sale.total_cents}
+                      className={`font-bold ${sale.reverted_at ? "text-stone-400 line-through" : ""}`}
+                    />
                   </div>
-                  <Money cents={sale.total_cents} className="font-bold" />
+                  {!sale.reverted_at && profile.role === "admin" && (
+                    <form action={cancelSaleAction}>
+                      <input type="hidden" name="id" value={sale.id} />
+                      <ConfirmSubmitButton
+                        className="btn-danger w-full"
+                        pendingText="Cancelando…"
+                        confirmMessage="Cancelar essa venda? O estoque volta pelo custo que saiu."
+                      >
+                        Cancelar venda
+                      </ConfirmSubmitButton>
+                    </form>
+                  )}
                 </li>
               );
             })}
