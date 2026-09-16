@@ -1,39 +1,49 @@
-import Link from "next/link";
-import { BRL } from "@/lib/db";
-import { recentPurchases } from "@/lib/queries";
-import { deletePurchase } from "@/app/actions";
-import { Empty } from "@/components/ui";
+import { getSessionProfile } from "@/lib/auth";
+import { listExternalPurchases, listVisibleVariants } from "@/lib/queries";
+import { Section, Empty, Money } from "@/components/ui";
+import { fmtDate } from "@/lib/format";
+import { NewExternalPurchaseForm } from "./NewExternalPurchaseForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function Compras() {
-  const rows = recentPurchases(50);
+export default async function ComprasPage() {
+  const profile = await getSessionProfile();
+  if (!profile) return null;
+
+  const [purchases, variants] = await Promise.all([
+    listExternalPurchases(profile.org.id),
+    listVisibleVariants(),
+  ]);
+
   return (
     <main>
-      <header className="mb-4 flex items-center justify-between">
-        <h1 className="h1">Compras</h1>
-        <Link href="/compras/nova" className="btn-primary px-4 py-2 text-sm">＋ Nova</Link>
-      </header>
-      {rows.length === 0 ? <Empty>Nenhuma entrada de estoque registrada.</Empty> : (
-        <div className="space-y-2">
-          {rows.map((p) => (
-            <div key={p.id} className="card flex items-center gap-3 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold">{p.supplier || "fornecedor não informado"}</div>
-                <div className="text-xs muted">
-                  {new Date(p.occurred_on + "T12:00:00").toLocaleDateString("pt-BR")} · {p.units} un
-                  {p.note ? ` · ${p.note}` : ""}
+      <h1 className="h1">Compras</h1>
+      <p className="text-sm muted">Entrada de estoque que não veio de um fornecedor cadastrado no sistema.</p>
+
+      <Section title="Histórico">
+        {!purchases.length ? (
+          <Empty>Nenhuma compra externa ainda.</Empty>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {purchases.map((p) => (
+              <li key={p.id} className="card flex items-center justify-between p-3 text-sm">
+                <div>
+                  <div className="font-semibold">{p.supplier_name || "Fornecedor não informado"}</div>
+                  <div className="text-xs muted">
+                    {fmtDate(p.occurred_on)}
+                    {p.note ? ` · ${p.note}` : ""}
+                  </div>
                 </div>
-              </div>
-              <div className="text-sm font-bold tabular text-red-700">−{BRL(p.total_cents)}</div>
-              <form action={deletePurchase}>
-                <input type="hidden" name="id" value={p.id} />
-                <button className="btn-danger px-3 py-2 text-xs">✕</button>
-              </form>
-            </div>
-          ))}
-        </div>
-      )}
+                <Money cents={p.total_cents} className="font-bold" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Nova compra">
+        <NewExternalPurchaseForm variants={variants} />
+      </Section>
     </main>
   );
 }

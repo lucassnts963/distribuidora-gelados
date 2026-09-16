@@ -1,64 +1,81 @@
-import Link from "next/link";
-import { BRL } from "@/lib/db";
-import { recentSales, saleItems } from "@/lib/queries";
-import { deleteSale } from "@/app/actions";
-import { Empty } from "@/components/ui";
+import { getSessionProfile } from "@/lib/auth";
+import { listSales, orgStock, listContacts, listOrgPrices, listVariantCosts } from "@/lib/queries";
+import { Section, Empty, Money } from "@/components/ui";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { fmtDate } from "@/lib/format";
+import { NewSaleForm } from "./NewSaleForm";
+import { cancelSaleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function Vendas() {
-  const sales = recentSales(50);
+export default async function VendasPage() {
+  const profile = await getSessionProfile();
+  if (!profile) return null;
+
+  const [sales, stock, contacts, prices, costs] = await Promise.all([
+    listSales(profile.org.id),
+    orgStock(profile.org.id),
+    listContacts(profile.org.id),
+    listOrgPrices(profile.org.id),
+    listVariantCosts(profile.org.id),
+  ]);
+  const variants = stock
+    .filter((s) => s.qty > 0)
+    .map((s) => ({ id: s.variantId, name: s.name, products: { name: s.product } }));
+
   return (
     <main>
-      <header className="mb-4 flex items-center justify-between">
-        <h1 className="h1">Vendas</h1>
-        <Link href="/vendas/nova" className="btn-primary px-4 py-2 text-sm">＋ Nova</Link>
-      </header>
+      <h1 className="h1">Vendas</h1>
 
-      {sales.length === 0 ? <Empty>Nenhuma venda registrada ainda.</Empty> : (
-        <div className="space-y-2">
-          {sales.map((s) => {
-            const items = saleItems(s.id);
-            const profit = s.total_cents - s.cost_cents;
-            return (
-              <details key={s.id} className="card overflow-hidden">
-                <summary className="flex cursor-pointer items-center gap-3 p-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`chip ${s.channel === "atacado" ? "bg-brand-100 text-brand-800" : "bg-stone-100 text-stone-700"}`}>
-                        {s.channel}
-                      </span>
-                      <span className="truncate text-sm font-semibold">{s.customer_name || "sem cadastro"}</span>
+      <Section title="Histórico">
+        {!sales.length ? (
+          <Empty>Nenhuma venda ainda.</Empty>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {sales.map((sale) => {
+              const contact = sale.contact as unknown as { name: string } | null;
+              return (
+                <li key={sale.id} className="card space-y-2 p-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{contact?.name ?? "Venda avulsa"}</div>
+                      <div className="text-xs muted">
+                        {sale.channel === "wholesale" ? "Atacado" : "Varejo"} · {fmtDate(sale.created_at)}
+                        {sale.reverted_at && " · cancelada"}
+                      </div>
                     </div>
-                    <div className="mt-0.5 text-xs muted">
-                      {new Date(s.occurred_on + "T12:00:00").toLocaleDateString("pt-BR")} · {s.units} un · {s.payment}
-                    </div>
+                    <Money
+                      cents={sale.total_cents}
+                      className={`font-bold ${sale.reverted_at ? "text-stone-400 line-through" : ""}`}
+                    />
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold tabular">{BRL(s.total_cents)}</div>
-                    <div className="text-xs tabular text-emerald-700">+{BRL(profit)}</div>
-                  </div>
-                </summary>
-                <div className="border-t border-stone-100 bg-stone-50/60 px-3 py-2">
-                  <ul className="space-y-1 text-xs">
-                    {items.map((i) => (
-                      <li key={i.id} className="flex justify-between">
-                        <span>{i.qty}× {i.flavor_name} <span className="muted">({i.product_name})</span></span>
-                        <span className="tabular">{BRL(i.qty * i.unit_cents)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {s.note && <p className="mt-2 text-xs muted">{s.note}</p>}
-                  <form action={deleteSale} className="mt-2">
-                    <input type="hidden" name="id" value={s.id} />
-                    <button className="btn-danger w-full py-2 text-xs">Excluir venda (devolve ao estoque)</button>
-                  </form>
-                </div>
-              </details>
-            );
-          })}
-        </div>
-      )}
+                  {!sale.reverted_at && profile.role === "admin" && (
+                    <form action={cancelSaleAction}>
+                      <input type="hidden" name="id" value={sale.id} />
+                      <ConfirmSubmitButton
+                        className="btn-danger w-full"
+                        pendingText="Cancelando…"
+                        confirmMessage="Cancelar essa venda? O estoque volta pelo custo que saiu."
+                      >
+                        Cancelar venda
+                      </ConfirmSubmitButton>
+                    </form>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Nova venda">
+        <NewSaleForm
+          variants={variants}
+          contacts={contacts}
+          prices={Object.fromEntries(prices)}
+          costs={Object.fromEntries(costs)}
+        />
+      </Section>
     </main>
   );
 }

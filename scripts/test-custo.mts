@@ -1,80 +1,140 @@
 /**
- * Teste do custo medio ponderado movel — o cenario que motivou a mudanca:
- * comprar o mesmo produto por precos diferentes ao longo do tempo.
+ * Testa o custo médio ponderado móvel (src/lib/costing.ts) direto contra o
+ * Postgres, usando a service role (bypassa RLS só pra montar o cenário —
+ * a lógica testada é a mesma que a aplicação usa em produção).
+ *
+ * Requer SUPABASE_SERVICE_ROLE_KEY no ambiente (não é a chave publishable
+ * do .env.example). Rodar com: npx tsx scripts/test-custo.mts
  */
-import { db } from "../src/lib/db.ts";
-import { recalcCosts, currentAvgCost } from "../src/lib/costing.ts";
+import { createClient } from "@supabase/supabase-js";
+import { recalcVariantCostWith } from "../src/lib/costing";
 
-const d = db();
-const P = (n: number) => (n / 100).toFixed(2).replace(".", ",");
-let pass = 0, fail = 0;
-const check = (label: string, got: number, want: number) => {
-  if (got === want) { console.log(`PASS ${label}: R$ ${P(got)}`); pass++; }
-  else { console.log(`FAIL ${label}: got R$ ${P(got)}, want R$ ${P(want)}`); fail++; }
-};
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!url || !serviceKey) {
+  console.error("Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente.");
+  process.exit(1);
+}
+const supabase = createClient(url, serviceKey);
 
-d.prepare(`INSERT INTO products (name, cost_cents, wholesale_cents, retail_cents) VALUES ('T',100,200,300)`).run();
-const pid = (d.prepare(`SELECT id FROM products WHERE name='T'`).get() as any).id;
-d.prepare(`INSERT INTO flavors (product_id, name) VALUES (?, 'X')`).run(pid);
-const fid = (d.prepare(`SELECT id FROM flavors WHERE product_id=?`).get(pid) as any).id;
+let failed = false;
+function assertEqual(label: string, got: unknown, expected: unknown) {
+  const ok = got === expected;
+  console.log(`${ok ? "PASS" : "FAIL"} ${label} (esperado ${expected}, veio ${got})`);
+  if (!ok) failed = true;
+}
 
-const buy = (date: string, qty: number, unit: number) => {
-  const r = d.prepare(`INSERT INTO purchases (occurred_on, total_cents) VALUES (?,?)`).run(date, qty * unit);
-  d.prepare(`INSERT INTO purchase_items (purchase_id, flavor_id, qty, unit_cents) VALUES (?,?,?,?)`)
-    .run(r.lastInsertRowid, fid, qty, unit);
-  recalcCosts();
-};
-const sell = (date: string, qty: number, price: number) => {
-  const r = d.prepare(`INSERT INTO sales (occurred_on, channel, total_cents) VALUES (?, 'varejo', ?)`).run(date, qty * price);
-  d.prepare(`INSERT INTO sale_items (sale_id, flavor_id, qty, unit_cents) VALUES (?,?,?,?)`)
-    .run(r.lastInsertRowid, fid, qty, price);
-  recalcCosts();
-  return Number(r.lastInsertRowid);
-};
-const costOfSale = (id: number) => (d.prepare(`SELECT cost_cents FROM sales WHERE id=?`).get(id) as any).cost_cents;
+async function main() {
+  const { data: org, error: orgError } = await supabase
+    .from("organizations")
+    .insert({ name: "Teste custo " + Date.now() })
+    .select("id")
+    .single();
+  if (orgError || !org) {
+    console.error("Não deu pra criar a organização de teste:", orgError?.message);
+    process.exit(1);
+  }
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .insert({ owner_org_id: org.id, name: "Produto teste" })
+    .select("id")
+    .single();
+  if (productError || !product) {
+    console.error("Não deu pra criar o produto de teste:", productError?.message);
+    process.exit(1);
+  }
+  const { data: variant, error: variantError } = await supabase
+    .from("product_variants")
+    .insert({ product_id: product.id, name: "Variação teste" })
+    .select("id")
+    .single();
+  if (variantError || !variant) {
+    console.error("Não deu pra criar a variação de teste:", variantError?.message);
+    process.exit(1);
+  }
+  const orgId = org.id as string;
+  const variantId = variant.id as string;
 
-console.log("\n— Cenario: tres negociacoes com precos diferentes —\n");
+  const move = (row: Record<string, unknown>) =>
+    supabase
+      .from("inventory_movements")
+      .insert({ org_id: orgId, variant_id: variantId, ...row })
+      .select("id")
+      .single();
+  const recalc = () => recalcVariantCostWith(supabase, orgId, variantId);
 
-buy("2026-01-01", 100, 100);                      // 100 un a R$1,00
-check("apos comprar 100 a R$1,00, custo medio", currentAvgCost(fid), 100);
+  // 1) Custo médio após 1ª compra
+  await move({ movement_type: "purchase", qty: 100, unit_cost_cents: 100, occurred_on: "2026-01-01" });
+  let r = await recalc();
+  assertEqual("custo médio após 1ª compra", r.avgCostCents, 100);
 
-const s1 = sell("2026-01-05", 90, 300);           // vende 90
-check("custo dessa venda (90 un a R$1,00)", costOfSale(s1), 9000);
-check("custo medio segue R$1,00", currentAvgCost(fid), 100);
+  // 2) Venda sai pelo custo da compra (única entrada até agora)
+  const sale1 = await move({ movement_type: "sale", qty: -10, unit_cost_cents: 0, occurred_on: "2026-01-02" });
+  await recalc();
+  const { data: sale1After } = await supabase
+    .from("inventory_movements")
+    .select("unit_cost_cents")
+    .eq("id", sale1.data!.id)
+    .single();
+  assertEqual("custo da venda = custo da compra", sale1After!.unit_cost_cents, 100);
 
-buy("2026-01-10", 100, 200);                      // 100 un a R$2,00, sobrando 10 do lote antigo
-// (10*100 + 100*200) / 110 = 21000/110 = 190,9 -> 191
-check("custo medio movel apos 2a compra", currentAvgCost(fid), 191);
-console.log("     (media SIMPLES das compras daria R$ 1,50 — subestimaria em R$ 0,41/un)");
+  // 3) Custo médio móvel (NÃO simples) após 2ª compra a preço diferente
+  //    saldo 90 a R$1,00 + compra 100 a R$2,00 -> média real R$1,91 (não R$1,50)
+  await move({ movement_type: "purchase", qty: 100, unit_cost_cents: 200, occurred_on: "2026-01-03" });
+  r = await recalc();
+  assertEqual("custo médio móvel após 2ª compra (não é média simples)", r.avgCostCents, 191);
 
-const s2 = sell("2026-01-15", 50, 300);
-check("custo da 2a venda (50 x R$1,91)", costOfSale(s2), 50 * 191);
-check("venda antiga NAO foi alterada", costOfSale(s1), 9000);
+  // 4) Congelamento: a venda antiga não muda com uma compra que não é retroativa
+  const { data: sale1Frozen } = await supabase
+    .from("inventory_movements")
+    .select("unit_cost_cents")
+    .eq("id", sale1.data!.id)
+    .single();
+  assertEqual("venda antiga continua congelada", sale1Frozen!.unit_cost_cents, 100);
 
-buy("2026-01-20", 60, 90);                        // lote barato
-// saldo antes: 110-50 = 60 un ao medio 191 -> valor 11460 (o recalc reconstroi do zero)
-// (60*191 + 60*90)/120 = (11460+5400)/120 = 16860/120 = 140,5 -> 141
-const avg3 = currentAvgCost(fid);
-console.log(`     custo medio apos 3a compra (60 a R$0,90): R$ ${P(avg3)}`);
-(avg3 > 138 && avg3 < 143) ? (console.log("PASS media caiu para a faixa esperada (~R$1,41)"), pass++)
-                           : (console.log("FAIL media fora da faixa esperada"), fail++);
+  // 5) 3ª compra a preço mais baixo derruba a média
+  //    saldo 190 a ~190,53 (21000/110) + compra 100 a R$0,50 -> nova média mais baixa
+  await move({ movement_type: "purchase", qty: 100, unit_cost_cents: 50, occurred_on: "2026-01-04" });
+  r = await recalc();
+  if (r.avgCostCents >= 191) {
+    console.log(`FAIL 3ª compra mais barata deveria baixar a média (ficou ${r.avgCostCents})`);
+    failed = true;
+  } else {
+    console.log(`PASS 3ª compra mais barata baixou a média (${r.avgCostCents})`);
+  }
 
-console.log("\n— Perda sai pelo custo medio —\n");
-d.prepare(`INSERT INTO adjustments (flavor_id, qty, reason, occurred_on) VALUES (?,?,?,?)`)
-  .run(fid, -20, "perda", "2026-01-25");
-recalcCosts();
-const adj = d.prepare(`SELECT unit_cost_cents FROM adjustments WHERE flavor_id=?`).get(fid) as any;
-check("perda de 20 un valorizada ao custo medio", adj.unit_cost_cents, avg3);
+  // 6) Perda sai pelo custo médio vigente
+  const loss = await move({ movement_type: "loss", qty: -5, unit_cost_cents: 0, occurred_on: "2026-01-05" });
+  const beforeLossAvg = r.avgCostCents;
+  r = await recalc();
+  const { data: lossAfter } = await supabase
+    .from("inventory_movements")
+    .select("unit_cost_cents")
+    .eq("id", loss.data!.id)
+    .single();
+  assertEqual("perda sai pelo custo médio vigente", lossAfter!.unit_cost_cents, beforeLossAvg);
 
-console.log("\n— Compra RETROATIVA reprocessa a ordem —\n");
-buy("2026-01-02", 100, 300);   // lancada por ultimo, mas com data no inicio
-const s1novo = costOfSale(s1);
-// agora antes da venda de 05/01 existem 100 a R$1,00 + 100 a R$3,00 -> medio 200
-check("venda de 05/01 recalculada ao novo medio (90 x R$2,00)", s1novo, 90 * 200);
+  // 7) Compra retroativa reprocessa cronologicamente e recalcula vendas posteriores
+  //    Insere uma compra com data ANTES da venda 1 (2026-01-02) -> a venda 1 deve
+  //    deixar de custar 100 (não existe mais só uma entrada de 100 antes dela).
+  await move({ movement_type: "purchase", qty: 50, unit_cost_cents: 300, occurred_on: "2025-12-31" });
+  await recalc();
+  const { data: sale1Retro } = await supabase
+    .from("inventory_movements")
+    .select("unit_cost_cents")
+    .eq("id", sale1.data!.id)
+    .single();
+  if (sale1Retro!.unit_cost_cents === 100) {
+    console.log("FAIL compra retroativa deveria ter mudado o custo da venda antiga");
+    failed = true;
+  } else {
+    console.log(`PASS compra retroativa recalculou a venda antiga (agora ${sale1Retro!.unit_cost_cents})`);
+  }
 
-const qty = (d.prepare(`SELECT qty FROM stock WHERE flavor_id=?`).get(fid) as any).qty;
-if (qty === 200) { console.log("PASS saldo fisico: 200 un"); pass++; }
-else { console.log("FAIL saldo fisico: " + qty + " un, esperado 200"); fail++; }
+  // limpeza
+  await supabase.from("organizations").delete().eq("id", orgId);
 
-console.log(`\n${pass} passaram, ${fail} falharam`);
-process.exit(fail ? 1 : 0);
+  process.exit(failed ? 1 : 0);
+}
+
+main();

@@ -1,131 +1,206 @@
-import { db } from "./db";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "./supabase/server";
 
 /**
- * Custo medio ponderado MOVEL (o metodo usado no Brasil).
+ * Custo medio ponderado MOVEL (o metodo usado no Brasil), portado de
+ * costing.ts do app original mas operando sobre o ledger unico
+ * `inventory_movements` em vez de tabelas separadas de compra/venda/ajuste.
  *
- * Nao e' a media simples das compras. A cada compra o custo medio novo e':
+ * Nao e' a media simples das entradas. A cada entrada o custo medio novo e':
  *
- *     (saldo_qty * custo_medio_atual + compra_qty * custo_da_compra)
- *     -------------------------------------------------------------
- *                     saldo_qty + compra_qty
+ *     (saldo_qty * custo_medio_atual + entrada_qty * custo_da_entrada)
+ *     ------------------------------------------------------------------
+ *                       saldo_qty + entrada_qty
  *
- * A diferenca importa. Comprei 100 a R$1,00, vendi 90, comprei 100 a R$2,00:
- *   - media simples das compras = R$1,50  (errado, subestima)
- *   - custo medio movel          = R$1,91  (certo: sobrou pouco do lote barato)
+ * Toda saida (venda, perda, ajuste negativo) sai pelo custo medio vigente
+ * NAQUELE momento, congelado no proprio movimento. `production`/`purchase`
+ * usam o custo que veio no movimento (preco real pago/de producao);
+ * `sale`/`loss`/`adjustment` sempre usam o custo medio calculado — qualquer
+ * valor gravado neles antes do recalculo e' só um placeholder.
  *
- * Toda saida (venda, perda, brinde) sai pelo custo medio vigente NAQUELE momento,
- * e esse valor fica congelado na venda. Lucro de venda ja registrada nunca muda
- * sozinho — so' quando voce manda recalcular de proposito.
+ * As funcoes `*With` recebem o client Supabase por parametro (funcionam em
+ * qualquer contexto: Server Action, RPC, ou um script standalone com
+ * service role); as sem sufixo usam o client de request do Next.js.
  */
 
-type Event =
-  | { kind: "buy"; date: string; at: string; id: number; qty: number; unit: number }
-  | { kind: "sell"; date: string; at: string; id: number; saleId: number; qty: number }
-  | { kind: "adj"; date: string; at: string; id: number; qty: number };
+type Movement = {
+  id: string;
+  movement_type: "production" | "purchase" | "sale" | "adjustment" | "loss" | "reversal";
+  qty: number;
+  unit_cost_cents: number;
+  occurred_on: string;
+  created_at: string;
+};
 
-export function recalcCosts(flavorId?: number) {
-  const d = db();
+const TYPE_RANK: Record<Movement["movement_type"], number> = {
+  production: 0,
+  purchase: 0,
+  reversal: 0,
+  adjustment: 1,
+  sale: 2,
+  loss: 2,
+};
 
-  const flavors = flavorId
-    ? [{ id: flavorId }]
-    : (d.prepare(`SELECT id FROM flavors`).all() as { id: number }[]);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function recalcVariantCostWith(supabase: SupabaseClient<any>, orgId: string, variantId: string) {
+  const { data } = await supabase
+    .from("inventory_movements")
+    .select("id, movement_type, qty, unit_cost_cents, occurred_on, created_at")
+    .eq("org_id", orgId)
+    .eq("variant_id", variantId);
 
-  const buys = d.prepare(
-    `SELECT pi.id, pi.qty, pi.unit_cents AS unit, p.occurred_on AS date, p.created_at AS at
-     FROM purchase_items pi JOIN purchases p ON p.id = pi.purchase_id
-     WHERE pi.flavor_id = ?`
-  );
-  const sells = d.prepare(
-    `SELECT si.id, si.sale_id AS saleId, si.qty, s.occurred_on AS date, s.created_at AS at
-     FROM sale_items si JOIN sales s ON s.id = si.sale_id
-     WHERE si.flavor_id = ?`
-  );
-  const adjs = d.prepare(
-    `SELECT id, qty, occurred_on AS date, created_at AS at FROM adjustments WHERE flavor_id = ?`
-  );
-
-  const setItemCost = d.prepare(`UPDATE sale_items SET unit_cost_cents = ? WHERE id = ?`);
-  const setAdjCost = d.prepare(`UPDATE adjustments SET unit_cost_cents = ? WHERE id = ?`);
-  const upsertState = d.prepare(
-    `INSERT INTO flavor_cost (flavor_id, avg_cost_cents, qty, value_cents, last_cost_cents, updated_at)
-     VALUES (?,?,?,?,?, strftime('%Y-%m-%d %H:%M:%f','now','localtime'))
-     ON CONFLICT(flavor_id) DO UPDATE SET
-       avg_cost_cents = excluded.avg_cost_cents, qty = excluded.qty,
-       value_cents = excluded.value_cents, last_cost_cents = excluded.last_cost_cents,
-       updated_at = excluded.updated_at`
-  );
-  const fallbackCost = d.prepare(`SELECT cost_cents FROM flavor_pricing WHERE flavor_id = ?`);
-
-  const run = d.transaction(() => {
-    const touchedSales = new Set<number>();
-
-    for (const f of flavors) {
-      const events: Event[] = [
-        ...(buys.all(f.id) as any[]).map((r) => ({ kind: "buy" as const, ...r })),
-        ...(sells.all(f.id) as any[]).map((r) => ({ kind: "sell" as const, ...r })),
-        ...(adjs.all(f.id) as any[]).map((r) => ({ kind: "adj" as const, ...r })),
-      ];
-      /*
-       * Ordem cronologica. A data (occurred_on) manda — e' ela que voce informa e que
-       * permite lancar movimento retroativo. Dentro do mesmo dia vale a ordem REAL de
-       * lancamento (created_at): se voce vendeu de manha e comprou a tarde, a venda da
-       * manha nao pode sair pelo custo do lote que so' chegou depois. So' quando nem isso
-       * desempata e' que a convencao entra: entrada antes de saida.
-       */
-      const rank = { buy: 0, adj: 1, sell: 2 } as const;
-      events.sort((a, b) => {
-        if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-        if (a.at !== b.at) return a.at < b.at ? -1 : 1;
-        return rank[a.kind] - rank[b.kind] || a.id - b.id;
-      });
-
-      let qty = 0;
-      let value = 0; // valor total do estoque em centavos
-      let last = 0;
-      const avg = () => (qty > 0 ? Math.round(value / qty) : last || (fallbackCost.get(f.id) as any)?.cost_cents || 0);
-
-      for (const e of events) {
-        if (e.kind === "buy") {
-          qty += e.qty;
-          value += e.qty * e.unit;
-          last = e.unit;
-        } else if (e.kind === "sell") {
-          const unitCost = avg();
-          setItemCost.run(unitCost, e.id);
-          touchedSales.add(e.saleId);
-          qty -= e.qty;
-          value -= e.qty * unitCost;
-          if (qty <= 0) { qty = Math.max(0, qty); value = qty === 0 ? 0 : value; }
-        } else {
-          const unitCost = avg();
-          setAdjCost.run(unitCost, e.id);
-          qty += e.qty;                      // e.qty ja vem com sinal
-          value += e.qty * unitCost;
-          if (qty <= 0) { qty = Math.max(0, qty); value = qty === 0 ? 0 : value; }
-        }
-        if (value < 0) value = 0;
-      }
-
-      upsertState.run(f.id, avg(), qty, Math.round(value), last);
-    }
-
-    // Recompoe o custo total de cada venda tocada
-    const recompute = d.prepare(
-      `UPDATE sales SET cost_cents =
-         (SELECT COALESCE(SUM(si.qty * si.unit_cost_cents),0) FROM sale_items si WHERE si.sale_id = sales.id)
-       WHERE id = ?`
-    );
-    for (const id of touchedSales) recompute.run(id);
+  const movements = (data ?? []) as Movement[];
+  movements.sort((a, b) => {
+    if (a.occurred_on !== b.occurred_on) return a.occurred_on < b.occurred_on ? -1 : 1;
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
+    return TYPE_RANK[a.movement_type] - TYPE_RANK[b.movement_type];
   });
 
-  run();
+  let qty = 0;
+  let value = 0; // valor total do estoque em centavos
+  let last = 0;
+  const avg = () => (qty > 0 ? Math.round(value / qty) : last);
+
+  const updates: { id: string; unit_cost_cents: number }[] = [];
+
+  for (const m of movements) {
+    // reversal de venda/perda entra qty>0 (devolve ao estoque pelo custo
+    // real que saiu) e cai aqui, igual producao/compra; reversal de
+    // producao/compra entra qty<0 e cai no else, precificado pela media
+    // vigente - o mesmo tratamento que sale/loss/adjustment ja tem.
+    if (
+      m.movement_type === "production" ||
+      m.movement_type === "purchase" ||
+      (m.movement_type === "reversal" && Number(m.qty) > 0)
+    ) {
+      qty += Number(m.qty);
+      value += Number(m.qty) * m.unit_cost_cents;
+      last = m.unit_cost_cents;
+    } else {
+      const unitCost = avg();
+      updates.push({ id: m.id, unit_cost_cents: unitCost });
+      qty += Number(m.qty); // ja vem com sinal (negativo em sale/loss, +/- em adjustment)
+      value += Number(m.qty) * unitCost;
+    }
+    if (qty <= 0) {
+      qty = Math.max(0, qty);
+      value = qty === 0 ? 0 : value;
+    }
+    if (value < 0) value = 0;
+  }
+
+  await Promise.all(
+    updates.map((u) =>
+      supabase.from("inventory_movements").update({ unit_cost_cents: u.unit_cost_cents }).eq("id", u.id)
+    )
+  );
+
+  await supabase.from("variant_costs").upsert(
+    {
+      org_id: orgId,
+      variant_id: variantId,
+      avg_cost_cents: avg(),
+      qty,
+      value_cents: Math.round(value),
+      last_cost_cents: last,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id,variant_id" }
+  );
+
+  return { avgCostCents: avg(), qty, valueCents: Math.round(value), lastCostCents: last };
 }
 
-/** Custo medio vigente de um sabor (para prever lucro antes de registrar a venda). */
-export function currentAvgCost(flavorId: number): number {
-  const r = db().prepare(`SELECT avg_cost_cents FROM flavor_cost WHERE flavor_id = ?`).get(flavorId) as
-    | { avg_cost_cents: number } | undefined;
-  if (r?.avg_cost_cents) return r.avg_cost_cents;
-  const f = db().prepare(`SELECT cost_cents FROM flavor_pricing WHERE flavor_id = ?`).get(flavorId) as any;
-  return f?.cost_cents ?? 0;
+export async function recalcVariantCost(orgId: string, variantId: string) {
+  const supabase = await createClient();
+  return recalcVariantCostWith(supabase, orgId, variantId);
+}
+
+/** Custo medio vigente de uma variacao (para prever lucro antes de registrar a venda). */
+export async function currentAvgCost(orgId: string, variantId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("variant_costs")
+    .select("avg_cost_cents")
+    .eq("org_id", orgId)
+    .eq("variant_id", variantId)
+    .maybeSingle();
+  return data?.avg_cost_cents ?? 0;
+}
+
+type RawMaterialMovement = {
+  id: string;
+  direction: "in" | "out";
+  qty: number;
+  unit_cost_cents: number;
+  occurred_at: string;
+};
+
+/**
+ * Mesma media movel ponderada de recalcVariantCostWith, mas sobre
+ * raw_material_movements (entrada/saida de insumo em vez de
+ * producao/venda de produto acabado). `in` entra pelo custo lancado;
+ * `out` (inclusive consumo por producao) sai pelo custo medio vigente,
+ * congelado no proprio movimento.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function recalcRawMaterialCostWith(supabase: SupabaseClient<any>, orgId: string, rawMaterialId: string) {
+  const { data } = await supabase
+    .from("raw_material_movements")
+    .select("id, direction, qty, unit_cost_cents, occurred_at")
+    .eq("raw_material_id", rawMaterialId);
+
+  const movements = (data ?? []) as RawMaterialMovement[];
+  movements.sort((a, b) => (a.occurred_at < b.occurred_at ? -1 : a.occurred_at > b.occurred_at ? 1 : 0));
+
+  let qty = 0;
+  let value = 0;
+  let last = 0;
+  const avg = () => (qty > 0 ? Math.round(value / qty) : last);
+
+  const updates: { id: string; unit_cost_cents: number }[] = [];
+
+  for (const m of movements) {
+    if (m.direction === "in") {
+      qty += Number(m.qty);
+      value += Number(m.qty) * m.unit_cost_cents;
+      last = m.unit_cost_cents;
+    } else {
+      const unitCost = avg();
+      updates.push({ id: m.id, unit_cost_cents: unitCost });
+      qty -= Number(m.qty);
+      value -= Number(m.qty) * unitCost;
+    }
+    if (qty <= 0) {
+      qty = Math.max(0, qty);
+      value = 0;
+    }
+    if (value < 0) value = 0;
+  }
+
+  await Promise.all(
+    updates.map((u) =>
+      supabase.from("raw_material_movements").update({ unit_cost_cents: u.unit_cost_cents }).eq("id", u.id)
+    )
+  );
+
+  await supabase.from("raw_material_costs").upsert(
+    {
+      org_id: orgId,
+      raw_material_id: rawMaterialId,
+      avg_cost_cents: avg(),
+      qty,
+      value_cents: Math.round(value),
+      last_cost_cents: last,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id,raw_material_id" }
+  );
+
+  return { avgCostCents: avg(), qty, valueCents: Math.round(value), lastCostCents: last };
+}
+
+export async function recalcRawMaterialCost(orgId: string, rawMaterialId: string) {
+  const supabase = await createClient();
+  return recalcRawMaterialCostWith(supabase, orgId, rawMaterialId);
 }

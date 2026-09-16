@@ -1,4 +1,4 @@
-import { BRL } from "@/lib/db";
+import { BRL } from "@/lib/format";
 
 export function Stat({
   label, value, sub, tone = "neutral",

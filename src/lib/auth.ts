@@ -1,43 +1,125 @@
-import crypto from "node:crypto";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
+import { listDisabledModules } from "@/lib/queries";
+import type { ModuleKey } from "@/lib/modules";
 
-const COOKIE = "gelados_session";
-const secret = () => process.env.APP_PASSWORD || "troque-esta-senha";
+export type SessionProfile = {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  role: "admin" | "staff" | "vendedor";
+  commissionRateBp: number | null;
+  notificationsSeenAt: string | null;
+  org: {
+    id: string;
+    name: string;
+    document: string | null;
+    inviteCode: string;
+    active: boolean;
+    plan: string;
+    logoUrl: string | null;
+    catalogSlug: string | null;
+  };
+  capabilities: {
+    hasOwnProducts: boolean;
+    supplierPartnerCount: number;
+    buyerPartnerCount: number;
+  };
+  disabledModules: Set<ModuleKey>;
+};
 
-export function makeToken() {
-  const payload = String(Date.now());
-  const sig = crypto.createHmac("sha256", secret()).update(payload).digest("hex");
-  return `${payload}.${sig}`;
+/**
+ * Sessao + perfil + organizacao + um resumo de capacidades calculado na hora
+ * (nunca um "tipo" fixo - ver plano). null quando nao ha sessao, ou quando ha
+ * sessao mas o usuario ainda nao criou/entrou numa organizacao (onboarding).
+ */
+export async function getSessionProfile(): Promise<SessionProfile | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select(
+      "role, full_name, commission_rate_bp, notifications_seen_at, organizations(id, name, document, invite_code, active, plan, logo_url, catalog_slug)"
+    )
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile || !profile.organizations) return null;
+  const org = profile.organizations as unknown as {
+    id: string;
+    name: string;
+    document: string | null;
+    invite_code: string;
+    active: boolean;
+    plan: string;
+    logo_url: string | null;
+    catalog_slug: string | null;
+  };
+
+  const [{ count: productsCount }, { count: supplierCount }, { count: buyerCount }, disabledModules] =
+    await Promise.all([
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_org_id", org.id),
+      supabase
+        .from("partnerships")
+        .select("id", { count: "exact", head: true })
+        .eq("supplier_org_id", org.id)
+        .eq("status", "active"),
+      supabase
+        .from("partnerships")
+        .select("id", { count: "exact", head: true })
+        .eq("buyer_org_id", org.id)
+        .eq("status", "active"),
+      listDisabledModules(org.id),
+    ]);
+
+  return {
+    userId: user.id,
+    email: user.email ?? null,
+    fullName: profile.full_name,
+    role: profile.role as "admin" | "staff" | "vendedor",
+    commissionRateBp: profile.commission_rate_bp,
+    notificationsSeenAt: profile.notifications_seen_at,
+    org: {
+      id: org.id,
+      name: org.name,
+      document: org.document,
+      inviteCode: org.invite_code,
+      active: org.active,
+      plan: org.plan,
+      logoUrl: org.logo_url,
+      catalogSlug: org.catalog_slug,
+    },
+    capabilities: {
+      hasOwnProducts: (productsCount ?? 0) > 0,
+      supplierPartnerCount: supplierCount ?? 0,
+      buyerPartnerCount: buyerCount ?? 0,
+    },
+    disabledModules,
+  };
 }
 
-export function validToken(token?: string | null) {
-  if (!token) return false;
-  const [payload, sig] = token.split(".");
-  if (!payload || !sig) return false;
-  const expected = crypto.createHmac("sha256", secret()).update(payload).digest("hex");
-  if (sig.length !== expected.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
-}
+/**
+ * Verifica via RLS (policy platform_admins_select_self) se o usuário logado
+ * é dono da plataforma. Não confundir com role "admin" de profiles, que é
+ * permissão dentro de uma organização.
+ */
+export async function isSuperAdmin(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
 
-export async function isLogged() {
-  const c = await cookies();
-  return validToken(c.get(COOKIE)?.value);
+  const { data } = await supabase
+    .from("platform_admins")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return !!data;
 }
-
-export async function login(password: string) {
-  if (password !== secret()) return false;
-  const c = await cookies();
-  c.set(COOKIE, makeToken(), {
-    httpOnly: true, sameSite: "lax", path: "/",
-    maxAge: 60 * 60 * 24 * 90,
-    secure: process.env.NODE_ENV === "production",
-  });
-  return true;
-}
-
-export async function logout() {
-  const c = await cookies();
-  c.delete(COOKIE);
-}
-
-export const COOKIE_NAME = COOKIE;

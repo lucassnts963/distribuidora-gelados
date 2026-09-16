@@ -1,10 +1,23 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import Nav from "@/components/Nav";
+import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 
 export const metadata: Metadata = {
-  title: "Distribuidora · Controle",
-  description: "Controle de estoque, vendas e caixa da distribuidora de gelados",
+  title: "Giro",
+  description: "Fabricante, distribuidores e clientes: estoque, pedidos e caixa num só lugar",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Giro",
+  },
 };
 export const viewport: Viewport = {
   width: "device-width", initialScale: 1, maximumScale: 1, themeColor: "#f05d06",
@@ -14,8 +27,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR">
       <body>
-        <div className="mx-auto max-w-2xl px-4 pb-24 pt-5">{children}</div>
-        <Nav />
+        {children}
+        <RegisterServiceWorker />
       </body>
     </html>
   );

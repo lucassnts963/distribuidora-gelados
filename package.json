@@ -1,23 +1,25 @@
 {
-  "name": "gelados",
+  "name": "giro",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
-    "seed": "node scripts/seed.mjs",
     "test:custo": "tsx scripts/test-custo.mts",
-    "test:e2e": "node scripts/e2e.mjs"
+    "test:datas": "TZ=America/Sao_Paulo tsx scripts/test-datas.mts && TZ=UTC tsx scripts/test-datas.mts",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.10",
+    "lucide-react": "^1.46.0",
     "next": "^15.1.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",

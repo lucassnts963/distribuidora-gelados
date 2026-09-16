@@ -1,191 +1,178 @@
-# Controle da Distribuidora
+# Giro
 
-Sistema web pequeno para controlar **estoque, vendas, compras, despesas e caixa** de uma
-distribuidora de produtos gelados (laranjinha, cremosinho e o que vier depois).
+Fabricante, distribuidores e clientes — girando juntos. Sistema web para uma
+cadeia de fabricante → distribuidores → clientes, onde
+qualquer organização pode fabricar, revender, ter clientes próprios, ou as
+três coisas ao mesmo tempo — não existe um "tipo" fixo de organização, os
+módulos aparecem conforme cada uma passa a usá-los.
 
-Feito para ser usado **no celular**, por duas pessoas, com o banco em um único arquivo SQLite.
-
----
-
-## O que ele responde
-
-- Quanto entrou e quanto saiu de caixa no mês
-- Quanto de fato sobrou (lucro bruto e lucro líquido — são coisas diferentes)
-- Quantas unidades faltam para a meta do mês
-- Qual sabor vende mais, qual está parado há semanas e qual acaba em menos de 7 dias
-- Quanto do faturamento depende de um único cliente
-- **Quanto o atacado rende por unidade contra o varejo** — e quanto de lucro você
-  deixou na mesa por despachar no atacado em vez de vender você mesmo
-
-## Modelo de dados
-
-```
-produto (Laranjinha)  ──< sabor (Uva, Abacaxi, ...)
-                             │
-      compras ──< itens ─────┤   entrada de estoque
-      vendas  ──< itens ─────┤   saída de estoque
-      ajustes ───────────────┘   perda, brinde, contagem
-```
-
-O estoque **não** é um campo que se atualiza: é sempre `compras − vendas ± ajustes`.
-Isso significa que apagar uma venda devolve o estoque automaticamente e o histórico nunca mente.
-
-Preço fica no **produto** (padrão) e o **sabor** só sobrescreve se for diferente —
-que é exatamente o caso de "todos os sabores custam o mesmo, mas às vezes um custa mais".
-
-Todo dinheiro é guardado em **centavos (INTEGER)**. Nunca em float.
+Banco de dados Postgres via Supabase (schema `public`, nomes de
+tabelas/colunas em inglês), autenticação real por usuário (Supabase Auth),
+interface em português, mobile-first e instalável como PWA.
 
 ---
+
+## O que cada organização pode fazer
+
+- **Produção**: cadastro de produtos e variações (com campos personalizados
+  configuráveis), insumos (entrada/saída), lotes de produção, capacidade
+  produtiva, estoque de produto acabado com validade e etapas opcionais.
+- **Revenda**: comprar de um fornecedor parceiro ou de fora da cadeia
+  (compra externa), vender no atacado/varejo (contato sem login ou venda
+  avulsa), preço próprio por variação, custo médio ponderado móvel,
+  despesas, relatório do mês (receita, CMV, lucro bruto/líquido, caixa).
+- **Rede**: propor parceria (fornecedor ↔ comprador) por código de convite,
+  aceitar/recusar, ver a disponibilidade (sem custo) do estoque de um
+  parceiro fornecedor.
+- **Pedidos**: comprador solicita, fornecedor aceita → separa → despacha
+  (baixa o próprio estoque), comprador confirma recebimento (dá entrada no
+  próprio estoque). Pedido pra alguém sem login no sistema é lançado direto
+  pelo vendedor.
+
+Cada organização só vê o que é seu, mais a disponibilidade (não o custo, os
+insumos, nem a capacidade produtiva) de quem tem parceria ativa com ela —
+tudo reforçado por Row Level Security no Postgres, não só na aplicação.
 
 ## Rodando local
 
 ```bash
 npm install
-cp .env.example .env       # troque a APP_PASSWORD
+cp .env.example .env       # os valores do Supabase já vêm preenchidos
 npm run dev                # http://localhost:3000
-npm run seed               # opcional: cria Laranjinha e Cremosinho com sabores comuns
 ```
 
-## Rodando com Docker Compose
-
-```bash
-cp .env.example .env       # troque a APP_PASSWORD
-docker compose up -d --build
-```
-
-O `docker-compose.yml` builda a imagem (build multi-stage, `next build` com
-`output: standalone`), expõe a porta `3000` (ou `${PORT}` do `.env`) e guarda
-o banco SQLite no volume nomeado `gelados_data`, montado em `/app/data`
-dentro do container — sobrevive a `docker compose down` e a rebuilds.
-
-```bash
-docker compose logs -f       # acompanhar
-docker compose down          # parar (o volume gelados_data continua existindo)
-```
-
-### Backup (com Docker)
-
-O container já tem o `sqlite3` instalado. Faça o backup de dentro dele,
-nunca copiando o arquivo do volume por fora (o modo WAL tem arquivos
-auxiliares abertos):
-
-```bash
-docker compose exec gelados sqlite3 /app/data/gelados.db \
-  ".backup '/app/data/backup-$(date +%F).db'"
-docker cp gelados:/app/data/backup-$(date +%F).db ./backup-$(date +%F).db
-```
-
-Coloque isso num cron diário. Um freezer queima; um HD também.
-
-## Rodando na sua VPS
-
-```bash
-npm ci
-npm run build
-
-# .env de produção
-APP_PASSWORD=uma-senha-boa
-DATABASE_PATH=/var/lib/gelados/gelados.db
-PORT=3000
-
-npm start
-```
-
-Coloque atrás do Nginx com HTTPS (o cookie de sessão só é `secure` em produção)
-e rode com PM2 ou systemd:
-
-```ini
-# /etc/systemd/system/gelados.service
-[Unit]
-Description=Controle da Distribuidora
-After=network.target
-
-[Service]
-WorkingDirectory=/opt/gelados
-EnvironmentFile=/opt/gelados/.env
-ExecStart=/usr/bin/npm start
-Restart=always
-User=www-data
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Backup
-
-O banco inteiro é **um arquivo**. Backup é copiar ele:
-
-```bash
-sqlite3 /var/lib/gelados/gelados.db ".backup '/backup/gelados-$(date +%F).db'"
-```
-
-Use `.backup` e não `cp` — o modo WAL tem arquivos auxiliares abertos.
-Coloque isso num cron diário. Um freezer queima; um HD também.
-
----
-
-## Acesso
-
-Senha única em `APP_PASSWORD`, cookie assinado com HMAC válido por 90 dias.
-Não há usuários separados — se um dia precisar saber *quem* lançou, é aí que
-entra tabela de usuários.
+Crie uma conta em `/cadastro`, depois uma organização em `/onboarding`.
 
 ## Custo médio ponderado móvel
 
-O custo usado para calcular lucro **não** é o preço da tabela nem a média simples
-das compras. É o custo médio móvel — a cada compra:
-
-```
-novo custo médio = (saldo × custo médio atual + compra × preço da compra)
-                   ─────────────────────────────────────────────────────
-                                  saldo + compra
-```
-
-Por que isso importa: comprei 100 a R$ 1,00, vendi 90, comprei 100 a R$ 2,00.
-
-| método | custo médio |
-|---|---|
-| média simples das compras | R$ 1,50 ← **errado**, subestima |
-| custo médio móvel | R$ 1,91 ← certo, sobrou pouco do lote barato |
-
-Toda saída (venda, perda, brinde) sai pelo custo médio vigente **naquele momento**,
-congelado na venda. Lucro de venda já registrada não muda sozinho.
-
-A ordem cronológica usa a data que você informa; dentro do mesmo dia vale a ordem
-real de lançamento. Se lançar uma compra com **data retroativa**, use
-*Ajustes → Recalcular custo médio de tudo*.
-
-O sistema mostra em Produtos o custo da tabela contra o custo médio real, e avisa
-no painel quando os dois divergem 5% ou mais.
-
-## Testes
+Mesma lógica e mesmos números do app original (ver `src/lib/costing.ts`):
+custo médio real, não a média simples das compras — cada saída (venda,
+perda, ajuste) sai pelo custo médio vigente naquele momento, congelado no
+próprio movimento. Uma compra com data retroativa reprocessa tudo
+cronologicamente e recalcula o custo das saídas posteriores automaticamente.
 
 ```bash
-npm run test:custo         # 10 verificações do custo médio móvel (unitário)
-
-npm start &                # servidor
-BASE_URL=http://127.0.0.1:3000 npm run test:e2e   # 41 verificações no navegador
+SUPABASE_SERVICE_ROLE_KEY=<pegue em Project Settings > API> npm run test:custo
 ```
 
-O e2e cria produto, sabores, compra, venda no atacado, venda no varejo, segunda
-compra a preço diferente, despesa e ajuste de perda — e confere estoque, custo
-médio, lucro por canal e caixa em cada tela.
+(A service role bypassa RLS só pra montar o cenário de teste — a lógica
+testada é a mesma usada pela aplicação em produção.)
 
-## Preços cadastrados no seed
+## Datas
 
-| | custo | atacado | varejo |
-|---|---|---|---|
-| Laranjinha | 1,50 | 2,00 | 3,00 |
-| Cremosinho | 0,80 | **1,30 (placeholder)** | 1,50 |
+Colunas de data pura do banco (`occurred_on`, `expires_on`, `period_*`,
+`produced_on`) vêm como `"YYYY-MM-DD"` e **não** podem passar por
+`new Date(str)`: o parse é UTC e o render é local, então em qualquer fuso
+negativo o dia volta um (uma despesa lançada dia 16 aparecia como 15).
+Use sempre os helpers de `src/lib/format.ts` — `fmtDate` (dd/mm/aaaa),
+`fmtDayMonth` (dd/mm), `fmtMonth` (mm/aaaa) e `daysUntil`. Eles tratam
+timestamptz (que tem `T`) como instante de verdade e data pura campo a
+campo.
 
-O atacado do cremosinho é um chute meu mantendo os mesmos R$ 0,50 de lucro da
-laranjinha. **Confirme e corrija na tela de Produtos** antes de lançar venda.
+```bash
+npm run test:datas   # roda em America/Sao_Paulo e em UTC
+```
 
----
+## Layout
 
-## O que ele de propósito NÃO faz
+Mesma base pra celular e PC: abaixo de `lg` a navegação é a barra inferior
+com as abas mais usadas; a partir de `lg` vira sidebar fixa com todos os
+módulos agrupados (Rede / Produção / Comercial) e o conteúdo abre em
+`max-w-6xl` com listas em grade de até 3 colunas. Sub-páginas
+(`/produtos/[id]`, `/insumos/[id]`, `/produtos/campos`) usam `BackLink`,
+porque instalado como PWA o app roda em standalone e não tem barra do
+navegador pra voltar.
 
-- **Fiado / contas a receber.** Você disse que vende só à vista. No dia em que
-  aparecer o primeiro "te pago sexta", isso vira a coisa mais importante do sistema.
-- **Emissão de nota.** Outro problema, outra hora.
-- **Multiusuário com permissão.** Duas pessoas de confiança, uma senha.
+## Checklist de teste manual
+
+Não há um e2e automatizado nesta entrega (ver nota abaixo). Sugestão de
+roteiro pra validar o fluxo inteiro, em duas contas diferentes (ex: duas
+abas anônimas) representando um fabricante e um distribuidor parceiro:
+
+**Conta A (fabricante)**
+1. `/cadastro` → `/onboarding`, criar organização "Fabricante Teste".
+2. `/produtos` → criar produto, adicionar variação.
+3. `/produtos/campos` → criar um campo personalizado (ex: validade padrão),
+   voltar em `/produtos/<id>` e preencher o valor.
+4. `/insumos` → cadastrar insumo, lançar entrada.
+5. `/produtos/<id>` → na variação, cadastrar a receita (insumo + qtd. por
+   unidade).
+6. `/producao` → planejar lote (usar o botão "Usar planejado" ao concluir),
+   iniciar, concluir (com lote/validade) — conferir que o custo unitário
+   veio calculado sozinho (sem digitar) e que `/insumos` mostra o saldo do
+   insumo descontado pela quantidade da receita × produzida.
+7. `/estoque` → avançar a etapa do lote, lançar uma perda pequena e conferir
+   que o saldo desconta.
+8. `/config` → copiar o **código de convite**. Na seção "Equipe", convidar
+   um segundo usuário (nome + email + papel) e conferir que o email de
+   convite chega (depende do SMTP configurado no projeto Supabase).
+
+**Conta B (distribuidor)**
+9. Criar organização "Distribuidor Teste".
+10. `/parcerias` → colar o código de convite da Conta A, escolher "vou
+    comprar dele", propor.
+
+**Conta A**
+11. `/parcerias` → aceitar a parceria pendente.
+
+**Conta B**
+12. `/pedidos` → conferir que o fornecedor aparece em "Novo pedido" com a
+    disponibilidade da Conta A e o preço já vindo da tabela dele (sem
+    campo pra digitar preço), solicitar um pedido.
+
+**Conta A**
+13. `/pedidos` → aceitar → iniciar separação → despachar. Conferir que o
+    próprio estoque (`/estoque`) baixou.
+
+**Conta B**
+14. `/pedidos` → confirmar recebimento. Conferir que o estoque
+    (`orgStock`, aparece em `/vendas` ao montar uma venda) subiu.
+15. `/precos` → definir preço de atacado/varejo pra variação recebida.
+16. `/contatos` → cadastrar um cliente.
+17. `/vendas` → vender pro contato, digitar um preço abaixo do custo médio
+    e conferir o alerta; depois conferir custo médio e total no histórico.
+18. `/despesas` → lançar uma despesa.
+19. `/relatorios` → conferir receita, CMV, lucro e disponibilidade do
+    fornecedor parceiro (sem aparecer custo/insumos da Conta A).
+
+**Multi-tenant (o que NÃO deve funcionar)**
+20. Confirmar que a Conta B não vê `/producao`, `/insumos` nem o custo dos
+    movimentos da Conta A — só a disponibilidade em `/pedidos`/`/relatorios`.
+21. Criar uma terceira organização sem nenhuma parceria e confirmar que ela
+    não vê nada das outras duas.
+
+> **Nota de ambiente**: esta reescrita foi desenvolvida numa sessão sem
+> acesso de rede direto ao Supabase (só via ferramentas MCP) — build e
+> typecheck passam limpos e cada query foi conferida manualmente contra o
+> schema real, mas o fluxo acima ainda não foi clicado de ponta a ponta.
+> Você é o primeiro teste real end-to-end.
+
+## PWA
+
+`npm run icons` regenera os ícones em `public/icons/` (script
+`scripts/generate-icons.mjs`) se o desenho mudar. Manifest e service worker
+já configurados — instale pelo navegador (Chrome/Safari → "Adicionar à tela
+de início").
+
+## Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+Só builda a aplicação — o banco é o Supabase gerenciado, não tem volume
+local. Veja `docker-compose.yml`/`Dockerfile`. Primeira versão do deploy
+real é na Vercel; o Docker Compose fica pronto pra uma futura VPS própria.
+
+## Deploy na Vercel
+
+A integração usada nesta sessão não tinha permissão pra criar o projeto
+direto (erro 403), então falta esse passo manual:
+
+1. [vercel.com/new](https://vercel.com/new) → importar `lucassnts963/distribuidora-gelados` (o framework Next.js é detectado sozinho).
+2. Antes de clicar em Deploy, decidir o **branch de produção**: por padrão a Vercel usa `main`, mas o código novo (essa reescrita inteira) está em `claude/supabase-multi-tenant` — `main` ainda está vazio/desatualizado. Ou muda a branch de produção do projeto nas configurações da Vercel pra `claude/supabase-multi-tenant`, ou faz o merge desse branch em `main` primeiro (há também um PR #1 antigo, da versão SQLite anterior — provavelmente vale fechar ele já que essa reescrita o substitui).
+3. Em **Environment Variables**, adicionar (Production e Preview):
+   - `NEXT_PUBLIC_SUPABASE_URL` = `https://gluwyubhmdxwafgotaxa.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `sb_publishable_fZX5eRDyNTT8bsVq9kVqnA_XNyZ_ZXn`
+   - `SUPABASE_SERVICE_ROLE_KEY` = (pegue em Project Settings → API do Supabase; **obrigatória** — usada pela tela de convite de colega em Config > Equipe)
+4. Deploy. Depois disso, todo push no branch de produção redeploya sozinho.
