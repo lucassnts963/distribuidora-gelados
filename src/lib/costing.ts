@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "./supabase/server";
 
 /**
  * Custo medio ponderado MOVEL (o metodo usado no Brasil), portado de
@@ -16,6 +17,10 @@ import { createClient } from "@/lib/supabase/server";
  * usam o custo que veio no movimento (preco real pago/de producao);
  * `sale`/`loss`/`adjustment` sempre usam o custo medio calculado — qualquer
  * valor gravado neles antes do recalculo e' só um placeholder.
+ *
+ * As funcoes `*With` recebem o client Supabase por parametro (funcionam em
+ * qualquer contexto: Server Action, RPC, ou um script standalone com
+ * service role); as sem sufixo usam o client de request do Next.js.
  */
 
 type Movement = {
@@ -35,8 +40,8 @@ const TYPE_RANK: Record<Movement["movement_type"], number> = {
   loss: 2,
 };
 
-export async function recalcVariantCost(orgId: string, variantId: string) {
-  const supabase = await createClient();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function recalcVariantCostWith(supabase: SupabaseClient<any>, orgId: string, variantId: string) {
   const { data } = await supabase
     .from("inventory_movements")
     .select("id, movement_type, qty, unit_cost_cents, occurred_on, created_at")
@@ -93,6 +98,13 @@ export async function recalcVariantCost(orgId: string, variantId: string) {
     },
     { onConflict: "org_id,variant_id" }
   );
+
+  return { avgCostCents: avg(), qty, valueCents: Math.round(value), lastCostCents: last };
+}
+
+export async function recalcVariantCost(orgId: string, variantId: string) {
+  const supabase = await createClient();
+  return recalcVariantCostWith(supabase, orgId, variantId);
 }
 
 /** Custo medio vigente de uma variacao (para prever lucro antes de registrar a venda). */

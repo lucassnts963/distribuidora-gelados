@@ -5,6 +5,13 @@ RUN npm ci
 
 FROM node:20-slim AS builder
 WORKDIR /app
+# NEXT_PUBLIC_* precisa existir no build (o Next inlina no bundle do
+# cliente), não só em runtime — por isso vem como build arg, não só env
+# do docker-compose. Valor não é secreto (protegido por RLS).
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
