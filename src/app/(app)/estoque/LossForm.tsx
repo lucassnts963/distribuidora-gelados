@@ -38,10 +38,7 @@ export function LossForm({ products, lots }: { products: Product[]; lots: Lot[] 
           ))}
         </select>
       )}
-      <div className="flex gap-2">
-        <input name="qty" className="inp" inputMode="decimal" placeholder="Quantidade" required />
-        <input name="unit_cost" className="inp" inputMode="decimal" placeholder="Custo unitário" />
-      </div>
+      <input name="qty" className="inp" inputMode="decimal" placeholder="Quantidade" required />
       <input name="reason" className="inp" placeholder="Motivo (ex: validade vencida, quebra)" />
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button className="btn-danger w-full" disabled={pending}>

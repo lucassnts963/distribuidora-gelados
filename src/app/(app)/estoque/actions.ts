@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
-import { toCents } from "@/lib/format";
+import { recalcVariantCost } from "@/lib/costing";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -45,7 +45,6 @@ export async function recordLossAction(_: unknown, form: FormData) {
   const lotId = s(form, "lot_id");
   const qty = Number(s(form, "qty").replace(",", "."));
   const reason = s(form, "reason");
-  const unitCost = toCents(s(form, "unit_cost"));
 
   if (!variantId) return { error: "Selecione a variação." };
   if (!qty || qty <= 0) return { error: "Informe uma quantidade válida." };
@@ -57,10 +56,13 @@ export async function recordLossAction(_: unknown, form: FormData) {
     lot_id: lotId || null,
     movement_type: "loss",
     qty: -Math.abs(qty),
-    unit_cost_cents: unitCost,
+    unit_cost_cents: 0,
     reference_type: "manual",
+    reason: reason || null,
   });
   if (error) return { error: "Não deu pra lançar a perda: " + error.message };
+
+  await recalcVariantCost(profile.org.id, variantId);
 
   if (lotId) {
     const { data: lot } = await supabase

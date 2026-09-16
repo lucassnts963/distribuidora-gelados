@@ -12,12 +12,13 @@ type Capabilities = {
 export default function Nav({ capabilities }: { capabilities: Capabilities }) {
   const p = usePathname();
 
+  const canSell = capabilities.hasOwnProducts || capabilities.buyerPartnerCount > 0;
+
   const items = [
     { href: "/", label: "Painel", icon: "◎", show: true },
     { href: "/producao", label: "Produção", icon: "⚙", show: capabilities.hasOwnProducts },
-    { href: "/estoque", label: "Estoque", icon: "▦", show: capabilities.hasOwnProducts },
-    { href: "/pedidos", label: "Pedidos", icon: "↘", show: capabilities.supplierPartnerCount > 0 },
-    { href: "/fornecedores", label: "Fornecedores", icon: "↗", show: capabilities.buyerPartnerCount > 0 },
+    { href: "/estoque", label: "Estoque", icon: "▦", show: canSell },
+    { href: "/vendas", label: "Vendas", icon: "↗", show: canSell },
     { href: "/parcerias", label: "Parcerias", icon: "⇄", show: true },
     { href: "/config", label: "Config", icon: "☰", show: true },
   ].filter((it) => it.show);

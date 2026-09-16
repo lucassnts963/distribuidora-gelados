@@ -1,0 +1,108 @@
+import { createClient } from "@/lib/supabase/server";
+
+/**
+ * Custo medio ponderado MOVEL (o metodo usado no Brasil), portado de
+ * costing.ts do app original mas operando sobre o ledger unico
+ * `inventory_movements` em vez de tabelas separadas de compra/venda/ajuste.
+ *
+ * Nao e' a media simples das entradas. A cada entrada o custo medio novo e':
+ *
+ *     (saldo_qty * custo_medio_atual + entrada_qty * custo_da_entrada)
+ *     ------------------------------------------------------------------
+ *                       saldo_qty + entrada_qty
+ *
+ * Toda saida (venda, perda, ajuste negativo) sai pelo custo medio vigente
+ * NAQUELE momento, congelado no proprio movimento. `production`/`purchase`
+ * usam o custo que veio no movimento (preco real pago/de producao);
+ * `sale`/`loss`/`adjustment` sempre usam o custo medio calculado — qualquer
+ * valor gravado neles antes do recalculo e' só um placeholder.
+ */
+
+type Movement = {
+  id: string;
+  movement_type: "production" | "purchase" | "sale" | "adjustment" | "loss";
+  qty: number;
+  unit_cost_cents: number;
+  occurred_on: string;
+  created_at: string;
+};
+
+const TYPE_RANK: Record<Movement["movement_type"], number> = {
+  production: 0,
+  purchase: 0,
+  adjustment: 1,
+  sale: 2,
+  loss: 2,
+};
+
+export async function recalcVariantCost(orgId: string, variantId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("inventory_movements")
+    .select("id, movement_type, qty, unit_cost_cents, occurred_on, created_at")
+    .eq("org_id", orgId)
+    .eq("variant_id", variantId);
+
+  const movements = (data ?? []) as Movement[];
+  movements.sort((a, b) => {
+    if (a.occurred_on !== b.occurred_on) return a.occurred_on < b.occurred_on ? -1 : 1;
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
+    return TYPE_RANK[a.movement_type] - TYPE_RANK[b.movement_type];
+  });
+
+  let qty = 0;
+  let value = 0; // valor total do estoque em centavos
+  let last = 0;
+  const avg = () => (qty > 0 ? Math.round(value / qty) : last);
+
+  const updates: { id: string; unit_cost_cents: number }[] = [];
+
+  for (const m of movements) {
+    if (m.movement_type === "production" || m.movement_type === "purchase") {
+      qty += Number(m.qty);
+      value += Number(m.qty) * m.unit_cost_cents;
+      last = m.unit_cost_cents;
+    } else {
+      const unitCost = avg();
+      updates.push({ id: m.id, unit_cost_cents: unitCost });
+      qty += Number(m.qty); // ja vem com sinal (negativo em sale/loss, +/- em adjustment)
+      value += Number(m.qty) * unitCost;
+    }
+    if (qty <= 0) {
+      qty = Math.max(0, qty);
+      value = qty === 0 ? 0 : value;
+    }
+    if (value < 0) value = 0;
+  }
+
+  await Promise.all(
+    updates.map((u) =>
+      supabase.from("inventory_movements").update({ unit_cost_cents: u.unit_cost_cents }).eq("id", u.id)
+    )
+  );
+
+  await supabase.from("variant_costs").upsert(
+    {
+      org_id: orgId,
+      variant_id: variantId,
+      avg_cost_cents: avg(),
+      qty,
+      value_cents: Math.round(value),
+      last_cost_cents: last,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id,variant_id" }
+  );
+}
+
+/** Custo medio vigente de uma variacao (para prever lucro antes de registrar a venda). */
+export async function currentAvgCost(orgId: string, variantId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("variant_costs")
+    .select("avg_cost_cents")
+    .eq("org_id", orgId)
+    .eq("variant_id", variantId)
+    .maybeSingle();
+  return data?.avg_cost_cents ?? 0;
+}

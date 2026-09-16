@@ -128,6 +128,180 @@ export async function openStagesByLot(lotIds: string[]) {
   return new Map((data ?? []).map((r) => [r.lot_id as string, { stage: r.stage, entered_at: r.entered_at }]));
 }
 
+/** Variações visíveis via RLS: próprias + de fornecedores parceiros ativos. */
+export async function listVisibleVariants() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("product_variants")
+    .select("id, name, active, products(name)")
+    .eq("active", true)
+    .order("name");
+  return (data ?? []).map((v) => ({
+    id: v.id as string,
+    name: v.name as string,
+    products: v.products as unknown as { name: string } | null,
+  }));
+}
+
+export async function listContacts(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("contacts")
+    .select("id, name, phone, kind, note")
+    .eq("org_id", orgId)
+    .order("name");
+  return data ?? [];
+}
+
+/** Preço de venda que a própria organização define por variação que estoca. */
+export async function listOrgPrices(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("org_variant_prices")
+    .select("variant_id, wholesale_cents, retail_cents, active")
+    .eq("org_id", orgId);
+  return new Map((data ?? []).map((p) => [p.variant_id as string, p]));
+}
+
+export async function listActiveSuppliers(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("partnerships")
+    .select("id, supplier:organizations!supplier_org_id(id, name)")
+    .eq("buyer_org_id", orgId)
+    .eq("status", "active");
+  return data ?? [];
+}
+
+type AvailableStockRow = { variant_id: string; qty_available: number; next_expiry: string | null; name: string; product: string };
+
+export async function supplierAvailableStock(supplierOrgId: string): Promise<AvailableStockRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("available_stock", { p_org_id: supplierOrgId });
+  if (!data?.length) return [];
+
+  const variantIds = data.map((d: { variant_id: string }) => d.variant_id);
+  const { data: variants } = await supabase
+    .from("product_variants")
+    .select("id, name, products(name)")
+    .in("id", variantIds);
+  const nameById = new Map(
+    (variants ?? []).map((v) => [
+      v.id as string,
+      { name: v.name as string, product: (v.products as unknown as { name: string } | null)?.name ?? "—" },
+    ])
+  );
+
+  return data.map((d: { variant_id: string; qty_available: number; next_expiry: string | null }) => ({
+    ...d,
+    ...(nameById.get(d.variant_id) ?? { name: "—", product: "—" }),
+  }));
+}
+
+export async function listExternalPurchases(orgId: string, limit = 20) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("external_purchases")
+    .select("id, supplier_name, note, occurred_on, total_cents")
+    .eq("org_id", orgId)
+    .order("occurred_on", { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+export async function listSales(orgId: string, limit = 20) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select("id, channel, total_cents, created_at, contact:contacts(name)")
+    .eq("supplier_org_id", orgId)
+    .eq("status", "delivered")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+export async function listExpenses(orgId: string, limit = 20) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("expenses")
+    .select("id, category, description, occurred_on, amount_cents")
+    .eq("org_id", orgId)
+    .order("occurred_on", { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+export async function periodSummary(orgId: string, from: string, to: string) {
+  const supabase = await createClient();
+
+  const { data: saleMovements } = await supabase
+    .from("inventory_movements")
+    .select("qty, unit_cost_cents")
+    .eq("org_id", orgId)
+    .eq("movement_type", "sale")
+    .gte("occurred_on", from)
+    .lte("occurred_on", to);
+
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("total_cents")
+    .eq("supplier_org_id", orgId)
+    .eq("status", "delivered")
+    .gte("created_at", from)
+    .lte("created_at", to + "T23:59:59");
+
+  const { data: expenses } = await supabase
+    .from("expenses")
+    .select("amount_cents")
+    .eq("org_id", orgId)
+    .gte("occurred_on", from)
+    .lte("occurred_on", to);
+
+  const { data: purchases } = await supabase
+    .from("external_purchases")
+    .select("total_cents")
+    .eq("org_id", orgId)
+    .gte("occurred_on", from)
+    .lte("occurred_on", to);
+
+  const revenue = (orders ?? []).reduce((sum, o) => sum + o.total_cents, 0);
+  const cmv = (saleMovements ?? []).reduce((sum, m) => sum + Math.abs(Number(m.qty)) * m.unit_cost_cents, 0);
+  const expensesTotal = (expenses ?? []).reduce((sum, e) => sum + e.amount_cents, 0);
+  const purchasesTotal = (purchases ?? []).reduce((sum, p) => sum + p.total_cents, 0);
+  const grossProfit = revenue - cmv;
+  const netProfit = grossProfit - expensesTotal;
+  const cashIn = revenue;
+  const cashOut = purchasesTotal + expensesTotal;
+
+  return { revenue, cmv, grossProfit, netProfit, expensesTotal, purchasesTotal, cashIn, cashOut, cashFlow: cashIn - cashOut };
+}
+
+export async function channelBreakdown(orgId: string, from: string, to: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select("channel, total_cents")
+    .eq("supplier_org_id", orgId)
+    .eq("status", "delivered")
+    .gte("created_at", from)
+    .lte("created_at", to + "T23:59:59");
+
+  const byChannel = { wholesale: { orders: 0, revenue: 0 }, retail: { orders: 0, revenue: 0 } };
+  for (const o of data ?? []) {
+    const key = (o.channel ?? "retail") as "wholesale" | "retail";
+    byChannel[key].orders += 1;
+    byChannel[key].revenue += o.total_cents;
+  }
+  return byChannel;
+}
+
+export async function stockValue(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase.from("variant_costs").select("value_cents").eq("org_id", orgId);
+  return (data ?? []).reduce((sum, r) => sum + r.value_cents, 0);
+}
+
 /** Estoque agregado por variação (soma dos movimentos), sem depender de lote. */
 export async function orgStock(orgId: string) {
   const supabase = await createClient();

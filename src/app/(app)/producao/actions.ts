@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
 import { toCents } from "@/lib/format";
+import { recalcVariantCost } from "@/lib/costing";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -109,6 +110,8 @@ export async function completeBatchAction(_: unknown, form: FormData) {
     reference_type: "manual",
   });
   if (moveError) return { error: "Movimento de estoque não foi lançado: " + moveError.message };
+
+  await recalcVariantCost(profile.org.id, variantId);
 
   revalidatePath("/producao");
   revalidatePath("/estoque");

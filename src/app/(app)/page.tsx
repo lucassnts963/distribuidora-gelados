@@ -48,6 +48,41 @@ export default async function PainelPage() {
         </div>
       </Section>
 
+      <Section title="Comercial">
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/vendas" className="card p-4">
+            <div className="text-2xl">💰</div>
+            <div className="mt-1 font-semibold">Vendas</div>
+            <div className="text-xs muted">Contato ou avulsa, atacado/varejo</div>
+          </Link>
+          <Link href="/compras" className="card p-4">
+            <div className="text-2xl">🧾</div>
+            <div className="mt-1 font-semibold">Compras</div>
+            <div className="text-xs muted">Entrada fora da cadeia</div>
+          </Link>
+          <Link href="/contatos" className="card p-4">
+            <div className="text-2xl">👥</div>
+            <div className="mt-1 font-semibold">Contatos</div>
+            <div className="text-xs muted">Clientes sem login no sistema</div>
+          </Link>
+          <Link href="/precos" className="card p-4">
+            <div className="text-2xl">🏷️</div>
+            <div className="mt-1 font-semibold">Preços</div>
+            <div className="text-xs muted">Atacado e varejo por variação</div>
+          </Link>
+          <Link href="/despesas" className="card p-4">
+            <div className="text-2xl">📉</div>
+            <div className="mt-1 font-semibold">Despesas</div>
+            <div className="text-xs muted">Custos fora do estoque</div>
+          </Link>
+          <Link href="/relatorios" className="card p-4">
+            <div className="text-2xl">📊</div>
+            <div className="mt-1 font-semibold">Relatórios</div>
+            <div className="text-xs muted">Resumo do mês, caixa e canais</div>
+          </Link>
+        </div>
+      </Section>
+
       {!capabilities.hasOwnProducts &&
         capabilities.supplierPartnerCount === 0 &&
         capabilities.buyerPartnerCount === 0 && (
