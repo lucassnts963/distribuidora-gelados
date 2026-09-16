@@ -174,7 +174,7 @@ export async function listOrgPrices(orgId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("org_variant_prices")
-    .select("variant_id, wholesale_cents, retail_cents, active")
+    .select("variant_id, wholesale_cents, retail_cents, min_qty, active")
     .eq("org_id", orgId);
   return new Map((data ?? []).map((p) => [p.variant_id as string, p]));
 }

@@ -32,23 +32,34 @@ export default async function PrecosPage() {
                   <div className="font-semibold">
                     {s.product} · {s.name}
                   </div>
-                  <form action={savePriceAction} className="flex gap-2">
+                  <form action={savePriceAction} className="space-y-2">
                     <input type="hidden" name="variant_id" value={s.variantId} />
-                    <input
-                      name="wholesale"
-                      className="inp"
-                      inputMode="decimal"
-                      placeholder="Atacado (R$)"
-                      defaultValue={price?.wholesale_cents ? (price.wholesale_cents / 100).toFixed(2) : ""}
-                    />
-                    <input
-                      name="retail"
-                      className="inp"
-                      inputMode="decimal"
-                      placeholder="Varejo (R$)"
-                      defaultValue={price?.retail_cents ? (price.retail_cents / 100).toFixed(2) : ""}
-                    />
-                    <SubmitButton pendingText="Salvando…">Salvar</SubmitButton>
+                    <div className="flex gap-2">
+                      <input
+                        name="wholesale"
+                        className="inp"
+                        inputMode="decimal"
+                        placeholder="Atacado (R$)"
+                        defaultValue={price?.wholesale_cents ? (price.wholesale_cents / 100).toFixed(2) : ""}
+                      />
+                      <input
+                        name="retail"
+                        className="inp"
+                        inputMode="decimal"
+                        placeholder="Varejo (R$)"
+                        defaultValue={price?.retail_cents ? (price.retail_cents / 100).toFixed(2) : ""}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        name="min_qty"
+                        className="inp"
+                        inputMode="decimal"
+                        placeholder="Estoque mínimo (opcional, pra avisar quando baixar)"
+                        defaultValue={price?.min_qty ?? ""}
+                      />
+                      <SubmitButton pendingText="Salvando…">Salvar</SubmitButton>
+                    </div>
                   </form>
                 </li>
               );

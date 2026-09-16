@@ -18,7 +18,7 @@ function PendingDot() {
   return <span className="h-2 w-2 shrink-0 animate-ping rounded-full bg-brand-500" />;
 }
 
-function BottomIcon({ Icon }: { Icon: LucideIcon }) {
+function BottomIcon({ Icon, badge }: { Icon: LucideIcon; badge?: number }) {
   const { pending } = useLinkStatus();
   return (
     <span className="relative flex">
@@ -26,6 +26,17 @@ function BottomIcon({ Icon }: { Icon: LucideIcon }) {
       {pending && (
         <span className="absolute -right-1 -top-1 h-2 w-2 animate-ping rounded-full bg-brand-500" />
       )}
+      {!pending && !!badge && <NotificationBadge count={badge} className="absolute -right-2 -top-1.5" />}
+    </span>
+  );
+}
+
+function NotificationBadge({ count, className = "" }: { count: number; className?: string }) {
+  return (
+    <span
+      className={`flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ${className}`}
+    >
+      {count > 9 ? "9+" : count}
     </span>
   );
 }
@@ -35,22 +46,31 @@ function isActive(pathname: string, href: string) {
 }
 
 const painel = moduleByHref("/");
+const avisos = moduleByHref("/notificacoes");
 const config = moduleByHref("/config");
 const GROUP_ORDER: ModuleGroup[] = ["Rede", "Produção", "Comercial"];
 
-export default function Nav({ capabilities }: { capabilities: Capabilities }) {
+export default function Nav({
+  capabilities,
+  unseenCount = 0,
+}: {
+  capabilities: Capabilities;
+  unseenCount?: number;
+}) {
   const pathname = usePathname();
   const canSell = capabilities.hasOwnProducts || capabilities.buyerPartnerCount > 0;
 
-  // A barra do celular filtra por capacidade porque só cabem 5 abas — é
-  // triagem de espaço. A sidebar não filtra: esconder Produção e Insumos de
-  // quem ainda não tem produto esconderia justamente o caminho de virar
-  // fabricante, e o Painel já lista todos os módulos sem filtro nenhum.
+  // A barra do celular filtra por capacidade porque só cabem as abas de uso
+  // mais frequente — é triagem de espaço. A sidebar não filtra: esconder
+  // Produção e Insumos de quem ainda não tem produto esconderia justamente
+  // o caminho de virar fabricante, e o Painel já lista todos os módulos sem
+  // filtro nenhum. Avisos não depende de capacidade — vale pra qualquer um.
   const bottomShow: Record<string, boolean> = {
     "/": true,
     "/producao": capabilities.hasOwnProducts,
     "/estoque": canSell,
     "/vendas": canSell,
+    "/notificacoes": true,
     "/config": true,
   };
   const bottomItems = Object.keys(bottomShow)
@@ -58,7 +78,7 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
     .map((href) => moduleByHref(href));
 
   const groups = [
-    { title: null, items: [painel] },
+    { title: null, items: [painel, avisos] },
     ...GROUP_ORDER.map((title) => ({ title, items: MODULES.filter((m) => m.group === title) })),
     { title: null, items: [config] },
   ];
@@ -90,6 +110,9 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
                       >
                         <it.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={2} />
                         <span className="flex-1 truncate">{it.label}</span>
+                        {it.href === "/notificacoes" && unseenCount > 0 && (
+                          <NotificationBadge count={unseenCount} />
+                        )}
                         <PendingDot />
                       </Link>
                     </li>
@@ -116,7 +139,7 @@ export default function Nav({ capabilities }: { capabilities: Capabilities }) {
                     active:opacity-60
                     ${active ? "text-brand-600" : "text-stone-400"}`}
                 >
-                  <BottomIcon Icon={it.icon} />
+                  <BottomIcon Icon={it.icon} badge={it.href === "/notificacoes" ? unseenCount : undefined} />
                   {it.label}
                 </Link>
               </li>

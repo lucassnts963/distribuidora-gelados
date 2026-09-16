@@ -16,6 +16,8 @@ export async function savePriceAction(form: FormData) {
   const variantId = s(form, "variant_id");
   const wholesale = toCents(s(form, "wholesale"));
   const retail = toCents(s(form, "retail"));
+  const minQtyRaw = s(form, "min_qty");
+  const minQty = minQtyRaw ? Number(minQtyRaw.replace(",", ".")) : null;
 
   const supabase = await createClient();
   await supabase.from("org_variant_prices").upsert(
@@ -24,6 +26,7 @@ export async function savePriceAction(form: FormData) {
       variant_id: variantId,
       wholesale_cents: wholesale,
       retail_cents: retail,
+      min_qty: minQty,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "org_id,variant_id" }

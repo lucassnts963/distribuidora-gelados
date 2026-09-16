@@ -14,6 +14,7 @@ import {
   TrendingDown,
   BarChart3,
   Settings,
+  Bell,
 } from "lucide-react";
 
 export type ModuleGroup = "Rede" | "Produção" | "Comercial";
@@ -34,6 +35,7 @@ export type AppModule = {
  */
 export const MODULES: AppModule[] = [
   { href: "/", label: "Painel", description: "", icon: LayoutDashboard, group: null },
+  { href: "/notificacoes", label: "Avisos", description: "Pedidos pendentes, validade e estoque baixo", icon: Bell, group: null },
   { href: "/parcerias", label: "Parcerias", description: "Propor, aceitar, código de convite", icon: ArrowLeftRight, group: "Rede" },
   { href: "/pedidos", label: "Pedidos", description: "Recebidos e feitos, entre organizações", icon: ClipboardList, group: "Rede" },
   { href: "/produtos", label: "Produtos", description: "Cadastro e campos personalizados", icon: Package, group: "Produção" },

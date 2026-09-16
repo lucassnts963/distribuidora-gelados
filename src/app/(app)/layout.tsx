@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/lib/auth";
+import { listSignals } from "@/lib/signals";
 import Nav from "@/components/Nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -18,9 +19,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
   }
 
+  const signals = await listSignals(profile.org.id);
+  const unseenCount = profile.notificationsSeenAt
+    ? signals.filter((s) => s.at > profile.notificationsSeenAt!).length
+    : signals.length;
+
   return (
     <>
-      <Nav capabilities={profile.capabilities} />
+      <Nav capabilities={profile.capabilities} unseenCount={unseenCount} />
       <div className="lg:pl-60">
         <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-5 lg:px-8 lg:pb-10">{children}</div>
       </div>
