@@ -515,6 +515,28 @@ export async function periodSummary(orgId: string, from: string, to: string) {
     .gte("occurred_on", from)
     .lte("occurred_on", to);
 
+  // Mesma separação caixa x competência do cashIn: despesa/compra à vista
+  // conta no período em que foi lançada; a prazo só vira caixa quando paga.
+  const { data: cashExpenses } = await supabase
+    .from("expenses")
+    .select("amount_cents")
+    .eq("org_id", orgId)
+    .is("reverted_at", null)
+    .or(
+      `and(due_date.is.null,occurred_on.gte.${from},occurred_on.lte.${to}),` +
+        `and(due_date.not.is.null,paid_at.gte.${from},paid_at.lte.${to}T23:59:59)`
+    );
+
+  const { data: cashPurchases } = await supabase
+    .from("external_purchases")
+    .select("total_cents")
+    .eq("org_id", orgId)
+    .is("reverted_at", null)
+    .or(
+      `and(due_date.is.null,occurred_on.gte.${from},occurred_on.lte.${to}),` +
+        `and(due_date.not.is.null,paid_at.gte.${from},paid_at.lte.${to}T23:59:59)`
+    );
+
   // Caixa x Receita propositalmente separados: receita conta no regime de
   // competência (momento da venda), mas venda a prazo (due_date definido)
   // só vira caixa quando de fato recebida (paid_at) — daí o OR: pega venda
@@ -539,7 +561,9 @@ export async function periodSummary(orgId: string, from: string, to: string) {
   const grossProfit = revenue - cmv;
   const netProfit = grossProfit - expensesTotal - feesTotal;
   const cashIn = (cashOrders ?? []).reduce((sum, o) => sum + o.total_cents, 0);
-  const cashOut = purchasesTotal + expensesTotal + feesTotal;
+  const cashExpensesTotal = (cashExpenses ?? []).reduce((sum, e) => sum + e.amount_cents, 0);
+  const cashPurchasesTotal = (cashPurchases ?? []).reduce((sum, p) => sum + p.total_cents, 0);
+  const cashOut = cashPurchasesTotal + cashExpensesTotal + feesTotal;
 
   return {
     revenue,
@@ -580,6 +604,73 @@ export async function listReceivables(orgId: string) {
       who: contact?.name ?? buyer?.name ?? "—",
     };
   });
+}
+
+export type Payable = {
+  id: string;
+  kind: "pedido" | "compra" | "despesa";
+  totalCents: number;
+  dueDate: string;
+  who: string;
+};
+
+/** Pedidos, compras externas e despesas a prazo ainda não pagos. */
+export async function listPayables(orgId: string): Promise<Payable[]> {
+  const supabase = await createClient();
+
+  const [{ data: orders }, { data: purchases }, { data: expenses }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id, total_cents, due_date, supplier:organizations!supplier_org_id(name)")
+      .eq("buyer_org_id", orgId)
+      .eq("status", "delivered")
+      .is("reverted_at", null)
+      .not("due_date", "is", null)
+      .is("paid_at", null),
+    supabase
+      .from("external_purchases")
+      .select("id, total_cents, due_date, supplier_name")
+      .eq("org_id", orgId)
+      .is("reverted_at", null)
+      .not("due_date", "is", null)
+      .is("paid_at", null),
+    supabase
+      .from("expenses")
+      .select("id, amount_cents, due_date, category")
+      .eq("org_id", orgId)
+      .is("reverted_at", null)
+      .not("due_date", "is", null)
+      .is("paid_at", null),
+  ]);
+
+  const payables: Payable[] = [
+    ...(orders ?? []).map((o) => {
+      const supplier = o.supplier as unknown as { name: string } | null;
+      return {
+        id: o.id as string,
+        kind: "pedido" as const,
+        totalCents: o.total_cents as number,
+        dueDate: o.due_date as string,
+        who: supplier?.name ?? "—",
+      };
+    }),
+    ...(purchases ?? []).map((p) => ({
+      id: p.id as string,
+      kind: "compra" as const,
+      totalCents: p.total_cents as number,
+      dueDate: p.due_date as string,
+      who: (p.supplier_name as string | null) ?? "Fornecedor",
+    })),
+    ...(expenses ?? []).map((e) => ({
+      id: e.id as string,
+      kind: "despesa" as const,
+      totalCents: e.amount_cents as number,
+      dueDate: e.due_date as string,
+      who: e.category as string,
+    })),
+  ];
+
+  return payables.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 }
 
 /**

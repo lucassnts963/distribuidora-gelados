@@ -8,11 +8,27 @@ import {
   reorderSuggestions,
   breakEven,
   listReceivables,
+  listPayables,
+  type Payable,
 } from "@/lib/queries";
 import { Section, Empty, Stat, Money } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { monthOf, monthStart, monthEnd, fmtMonth, fmtDate, daysUntil } from "@/lib/format";
 import { markOrderPaidAction } from "./actions";
+import { markPurchasePaidAction } from "../compras/actions";
+import { markExpensePaidAction } from "../despesas/actions";
+
+const PAYABLE_KIND_LABEL: Record<Payable["kind"], string> = {
+  pedido: "Pedido",
+  compra: "Compra",
+  despesa: "Despesa",
+};
+
+function payablePaidAction(kind: Payable["kind"]) {
+  if (kind === "compra") return markPurchasePaidAction;
+  if (kind === "despesa") return markExpensePaidAction;
+  return markOrderPaidAction;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +40,7 @@ export default async function RelatoriosPage() {
   const from = monthStart(month);
   const to = monthEnd(month);
 
-  const [summary, channels, stock, suppliers, reorders, equilibrium, receivables] = await Promise.all([
+  const [summary, channels, stock, suppliers, reorders, equilibrium, receivables, payables] = await Promise.all([
     periodSummary(profile.org.id, from, to),
     channelBreakdown(profile.org.id, from, to),
     stockValue(profile.org.id),
@@ -32,6 +48,7 @@ export default async function RelatoriosPage() {
     reorderSuggestions(profile.org.id),
     breakEven(profile.org.id, from, to),
     listReceivables(profile.org.id),
+    listPayables(profile.org.id),
   ]);
 
   const supplierStocks = await Promise.all(
@@ -103,36 +120,73 @@ export default async function RelatoriosPage() {
         )}
       </Section>
 
-      <Section title="Contas a receber">
-        {!receivables.length ? (
-          <Empty>Nenhuma venda a prazo em aberto.</Empty>
-        ) : (
-          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {receivables.map((r) => {
-              const days = daysUntil(r.dueDate);
-              return (
-                <li key={r.id} className="card space-y-2 p-3 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="font-semibold">{r.who}</div>
-                      <div className={`text-xs ${days < 0 ? "text-red-600" : "muted"}`}>
-                        Vence {fmtDate(r.dueDate)}
-                        {days < 0 ? ` · ${-days} dia(s) em atraso` : ""}
+      <Section title="Contas a pagar e a receber">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div>
+            <h3 className="mb-2 text-sm font-semibold">A receber</h3>
+            {!receivables.length ? (
+              <Empty>Nenhuma venda a prazo em aberto.</Empty>
+            ) : (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {receivables.map((r) => {
+                  const days = daysUntil(r.dueDate);
+                  return (
+                    <li key={r.id} className="card space-y-2 p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="font-semibold">{r.who}</div>
+                          <div className={`text-xs ${days < 0 ? "text-red-600" : "muted"}`}>
+                            Vence {fmtDate(r.dueDate)}
+                            {days < 0 ? ` · ${-days} dia(s) em atraso` : ""}
+                          </div>
+                        </div>
+                        <Money cents={r.totalCents} className="font-bold" />
                       </div>
-                    </div>
-                    <Money cents={r.totalCents} className="font-bold" />
-                  </div>
-                  <form action={markOrderPaidAction}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <SubmitButton className="btn-primary w-full" pendingText="Marcando…">
-                      Marcar como recebido
-                    </SubmitButton>
-                  </form>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                      <form action={markOrderPaidAction}>
+                        <input type="hidden" name="id" value={r.id} />
+                        <SubmitButton className="btn-primary w-full" pendingText="Marcando…">
+                          Marcar como recebido
+                        </SubmitButton>
+                      </form>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold">A pagar</h3>
+            {!payables.length ? (
+              <Empty>Nenhuma conta a pagar em aberto.</Empty>
+            ) : (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {payables.map((p) => {
+                  const days = daysUntil(p.dueDate);
+                  return (
+                    <li key={`${p.kind}-${p.id}`} className="card space-y-2 p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="font-semibold">{p.who}</div>
+                          <div className={`text-xs ${days < 0 ? "text-red-600" : "muted"}`}>
+                            {PAYABLE_KIND_LABEL[p.kind]} · vence {fmtDate(p.dueDate)}
+                            {days < 0 ? ` · ${-days} dia(s) em atraso` : ""}
+                          </div>
+                        </div>
+                        <Money cents={p.totalCents} className="font-bold" />
+                      </div>
+                      <form action={payablePaidAction(p.kind)}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <SubmitButton className="btn-primary w-full" pendingText="Marcando…">
+                          Marcar como pago
+                        </SubmitButton>
+                      </form>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
       </Section>
 
       <Section title="Estoque">

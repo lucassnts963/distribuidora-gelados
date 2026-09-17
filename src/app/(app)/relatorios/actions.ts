@@ -18,7 +18,7 @@ export async function markOrderPaidAction(form: FormData) {
     .from("orders")
     .update({ paid_at: new Date().toISOString() })
     .eq("id", orderId)
-    .eq("supplier_org_id", profile.org.id)
+    .or(`supplier_org_id.eq.${profile.org.id},buyer_org_id.eq.${profile.org.id}`)
     .is("paid_at", null);
 
   revalidatePath("/relatorios");

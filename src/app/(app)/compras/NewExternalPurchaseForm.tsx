@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createExternalPurchaseAction } from "./actions";
 import { ItemsForm } from "@/components/ItemsForm";
 
@@ -8,6 +8,7 @@ type Variant = { id: string; name: string; products?: { name: string } | null };
 
 export function NewExternalPurchaseForm({ variants }: { variants: Variant[] }) {
   const [state, action, pending] = useActionState(createExternalPurchaseAction, null);
+  const [deferred, setDeferred] = useState(false);
   return (
     <form action={action} className="card space-y-4 p-4">
       <div className="flex gap-2">
@@ -16,6 +17,20 @@ export function NewExternalPurchaseForm({ variants }: { variants: Variant[] }) {
       </div>
       <input name="note" className="inp" placeholder="Observação (opcional)" />
       <ItemsForm variants={variants} priceFieldName="unit_cost" priceLabel="Custo un." />
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={deferred}
+          onChange={(e) => setDeferred(e.target.checked)}
+        />
+        Compra a prazo
+      </label>
+      {deferred && (
+        <div>
+          <label className="mb-1 block text-xs muted">Vencimento</label>
+          <input name="due_date" type="date" className="inp" required />
+        </div>
+      )}
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button className="btn-primary w-full" disabled={pending}>
         {pending ? "Registrando…" : "Registrar compra"}

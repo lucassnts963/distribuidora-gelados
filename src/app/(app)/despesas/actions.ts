@@ -19,6 +19,7 @@ export async function createExpenseAction(_: unknown, form: FormData) {
   const occurredOn = s(form, "occurred_on") || today();
   const amount = toCents(s(form, "amount"));
   const costType = s(form, "cost_type") === "fixed" ? "fixed" : "variable";
+  const dueDate = s(form, "due_date");
   if (!category) return { error: "Informe a categoria." };
   if (!amount) return { error: "Informe o valor." };
 
@@ -30,11 +31,29 @@ export async function createExpenseAction(_: unknown, form: FormData) {
     occurred_on: occurredOn,
     amount_cents: amount,
     cost_type: costType,
+    due_date: dueDate || null,
   });
   if (error) return { error: "Não deu pra lançar: " + error.message };
 
   revalidatePath("/despesas");
   return { ok: true };
+}
+
+export async function markExpensePaidAction(form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile || profile.role !== "admin") return;
+
+  const expenseId = s(form, "id");
+  const supabase = await createClient();
+  await supabase
+    .from("expenses")
+    .update({ paid_at: new Date().toISOString() })
+    .eq("id", expenseId)
+    .eq("org_id", profile.org.id)
+    .is("paid_at", null);
+
+  revalidatePath("/despesas");
+  revalidatePath("/relatorios");
 }
 
 export async function cancelExpenseAction(_: unknown, form: FormData) {

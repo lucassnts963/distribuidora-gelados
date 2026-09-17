@@ -19,6 +19,7 @@ export async function createExternalPurchaseAction(_: unknown, form: FormData) {
   const supplierName = s(form, "supplier_name");
   const note = s(form, "note");
   const occurredOn = s(form, "occurred_on") || today();
+  const dueDate = s(form, "due_date");
   const items = parseItems(form, "unit_cost");
   if (!items.length) return { error: "Adicione ao menos um item." };
 
@@ -27,7 +28,14 @@ export async function createExternalPurchaseAction(_: unknown, form: FormData) {
 
   const { data: purchase, error: purchaseError } = await supabase
     .from("external_purchases")
-    .insert({ org_id: profile.org.id, supplier_name: supplierName || null, note: note || null, occurred_on: occurredOn, total_cents: total })
+    .insert({
+      org_id: profile.org.id,
+      supplier_name: supplierName || null,
+      note: note || null,
+      occurred_on: occurredOn,
+      total_cents: total,
+      due_date: dueDate || null,
+    })
     .select("id")
     .single();
   if (purchaseError || !purchase) return { error: "Não deu pra registrar: " + purchaseError?.message };
@@ -61,6 +69,23 @@ export async function createExternalPurchaseAction(_: unknown, form: FormData) {
   revalidatePath("/compras");
   revalidatePath("/estoque");
   return { ok: true };
+}
+
+export async function markPurchasePaidAction(form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile || profile.role !== "admin") return;
+
+  const purchaseId = s(form, "id");
+  const supabase = await createClient();
+  await supabase
+    .from("external_purchases")
+    .update({ paid_at: new Date().toISOString() })
+    .eq("id", purchaseId)
+    .eq("org_id", profile.org.id)
+    .is("paid_at", null);
+
+  revalidatePath("/compras");
+  revalidatePath("/relatorios");
 }
 
 export async function cancelExternalPurchaseAction(_: unknown, form: FormData) {
