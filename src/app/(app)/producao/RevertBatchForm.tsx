@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { revertBatchAction } from "./actions";
 
 export function RevertBatchForm({ batchId }: { batchId: string }) {
@@ -9,14 +9,16 @@ export function RevertBatchForm({ batchId }: { batchId: string }) {
   return (
     <form action={action}>
       <input type="hidden" name="id" value={batchId} />
-      <ConfirmSubmitButton
+      <ConfirmDialog
         className="btn-ghost"
         pendingText="Revertendo…"
         confirmMessage="Reverter essa produção? Só funciona se nada dela foi vendido ainda."
+        confirmLabel="Reverter"
+        error={state?.error}
+        success={!!state?.ok}
       >
         Reverter
-      </ConfirmSubmitButton>
-      {state?.error && <p className="mt-1 text-xs text-red-600">{state.error}</p>}
+      </ConfirmDialog>
     </form>
   );
 }

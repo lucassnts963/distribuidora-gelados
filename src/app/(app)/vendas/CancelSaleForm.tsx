@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { cancelSaleAction } from "./actions";
 
 export function CancelSaleForm({ saleId }: { saleId: string }) {
@@ -9,14 +9,16 @@ export function CancelSaleForm({ saleId }: { saleId: string }) {
   return (
     <form action={action}>
       <input type="hidden" name="id" value={saleId} />
-      <ConfirmSubmitButton
+      <ConfirmDialog
         className="btn-danger w-full"
         pendingText="Cancelando…"
         confirmMessage="Cancelar essa venda? O estoque volta pelo custo que saiu."
+        confirmLabel="Cancelar venda"
+        error={state?.error}
+        success={!!state?.ok}
       >
         Cancelar venda
-      </ConfirmSubmitButton>
-      {state?.error && <p className="mt-1 text-xs text-red-600">{state.error}</p>}
+      </ConfirmDialog>
     </form>
   );
 }

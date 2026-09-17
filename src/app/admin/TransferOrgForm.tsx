@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { transferOrganizationAction } from "./actions";
-import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export function TransferOrgForm({ orgId, memberCount }: { orgId: string; memberCount: number }) {
   const [state, action] = useActionState(transferOrganizationAction, null);
@@ -17,15 +17,17 @@ export function TransferOrgForm({ orgId, memberCount }: { orgId: string; memberC
         <label className="lbl">Email da conta de destino</label>
         <input name="email" type="email" className="inp" required />
       </div>
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.ok && <p className="text-sm text-emerald-700">Transferida.</p>}
-      <ConfirmSubmitButton
+      <ConfirmDialog
         className="btn-danger w-full"
         pendingText="Transferindo…"
         confirmMessage="Transferir essa organização? Quem está nela hoje perde o acesso agora."
+        confirmLabel="Transferir"
+        error={state?.error}
+        success={!!state?.ok}
       >
         Transferir
-      </ConfirmSubmitButton>
+      </ConfirmDialog>
     </form>
   );
 }

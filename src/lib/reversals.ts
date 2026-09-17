@@ -63,18 +63,75 @@ export async function reverseSale(orderId: string, orgId: string) {
   return { ok: true };
 }
 
+type RevertEligibility = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Elegibilidade de reversão de um lote — extraído de reverseProductionBatch
+ * pra um lugar só, chamado tanto pela mutação quanto pela renderização
+ * (produção/page.tsx esconde o botão "Reverter" quando já sabidamente
+ * bloqueado, em vez de deixar clicar pra descobrir).
+ */
+export async function canRevertBatch(batchId: string, orgId: string): Promise<RevertEligibility> {
+  const supabase = await createClient();
+
+  const { data: batch } = await supabase
+    .from("production_batches")
+    .select("id, owner_org_id, status, variant_id, produced_qty, reverted_at")
+    .eq("id", batchId)
+    .single();
+  if (!batch || batch.owner_org_id !== orgId) return { ok: false, reason: "Lote não encontrado." };
+  if (batch.status !== "completed") return { ok: false, reason: "Só dá pra reverter um lote já concluído." };
+  if (batch.reverted_at) return { ok: false, reason: "Esse lote já foi revertido." };
+  if (!batch.variant_id || !batch.produced_qty) {
+    return { ok: false, reason: "Lote sem variação ou quantidade produzida." };
+  }
+
+  const { data: productionMovement } = await supabase
+    .from("inventory_movements")
+    .select("id, lot_id")
+    .eq("org_id", orgId)
+    .eq("reference_type", "production_batch")
+    .eq("reference_id", batchId)
+    .eq("movement_type", "production")
+    .maybeSingle();
+  if (!productionMovement) return { ok: false, reason: "Não achei o movimento de estoque dessa produção." };
+
+  if (productionMovement.lot_id) {
+    const { data: lot } = await supabase
+      .from("inventory_lots")
+      .select("qty_received, qty_remaining")
+      .eq("id", productionMovement.lot_id)
+      .single();
+    if (lot && Number(lot.qty_remaining) !== Number(lot.qty_received)) {
+      return { ok: false, reason: "Parte desse lote já foi vendida ou consumida — não dá pra reverter." };
+    }
+  } else {
+    const { data: cost } = await supabase
+      .from("variant_costs")
+      .select("qty")
+      .eq("org_id", orgId)
+      .eq("variant_id", batch.variant_id)
+      .maybeSingle();
+    if (!cost || Number(cost.qty) < Number(batch.produced_qty)) {
+      return { ok: false, reason: "Parte do que essa produção gerou já foi vendida — não dá pra reverter." };
+    }
+  }
+
+  return { ok: true };
+}
+
 export async function reverseProductionBatch(batchId: string, orgId: string) {
   const supabase = await createClient();
+
+  const eligibility = await canRevertBatch(batchId, orgId);
+  if (!eligibility.ok) return { error: eligibility.reason };
 
   const { data: batch } = await supabase
     .from("production_batches")
     .select("id, owner_org_id, status, variant_id, produced_qty, batch_number, reverted_at")
     .eq("id", batchId)
     .single();
-  if (!batch || batch.owner_org_id !== orgId) return { error: "Lote não encontrado." };
-  if (batch.status !== "completed") return { error: "Só dá pra reverter um lote já concluído." };
-  if (batch.reverted_at) return { error: "Esse lote já foi revertido." };
-  if (!batch.variant_id || !batch.produced_qty) return { error: "Lote sem variação ou quantidade produzida." };
+  if (!batch) return { error: "Lote não encontrado." };
 
   const { data: productionMovement } = await supabase
     .from("inventory_movements")
@@ -94,19 +151,6 @@ export async function reverseProductionBatch(batchId: string, orgId: string) {
       .eq("id", productionMovement.lot_id)
       .single();
     lot = data;
-    if (lot && Number(lot.qty_remaining) !== Number(lot.qty_received)) {
-      return { error: "Parte desse lote já foi vendida ou consumida — não dá pra reverter." };
-    }
-  } else {
-    const { data: cost } = await supabase
-      .from("variant_costs")
-      .select("qty")
-      .eq("org_id", orgId)
-      .eq("variant_id", batch.variant_id)
-      .maybeSingle();
-    if (!cost || Number(cost.qty) < Number(batch.produced_qty)) {
-      return { error: "Parte do que essa produção gerou já foi vendida — não dá pra reverter." };
-    }
   }
 
   const occurredOn = today();

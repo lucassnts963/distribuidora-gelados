@@ -1,5 +1,6 @@
 import { getSessionProfile } from "@/lib/auth";
 import { listProducts, listProductionBatches, listCapacityPlans, listVariantIdsWithRecipe } from "@/lib/queries";
+import { canRevertBatch } from "@/lib/reversals";
 import { Empty } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
@@ -31,6 +32,14 @@ export default async function ProducaoPage() {
     listVariantIdsWithRecipe(profile.org.id),
   ]);
 
+  const revertEligibility = new Map(
+    await Promise.all(
+      batches
+        .filter((b) => b.status === "completed" && !b.reverted_at && profile.role === "admin")
+        .map(async (b) => [b.id, await canRevertBatch(b.id, profile.org.id)] as const)
+    )
+  );
+
   return (
     <main>
       <h1 className="h1">Produção</h1>
@@ -55,6 +64,7 @@ export default async function ProducaoPage() {
                       {batches.map((b) => {
                         const product = b.products as unknown as { name: string } | null;
                         const variant = b.product_variants as unknown as { name: string } | null;
+                        const eligibility = revertEligibility.get(b.id);
                         return (
                           <li key={b.id} className="card space-y-2 p-3">
                             <div className="flex items-center justify-between">
@@ -84,9 +94,16 @@ export default async function ProducaoPage() {
                                   </form>
                                 </div>
                               )}
-                              {b.status === "completed" && !b.reverted_at && profile.role === "admin" && (
-                                <RevertBatchForm batchId={b.id} />
-                              )}
+                              {b.status === "completed" &&
+                                !b.reverted_at &&
+                                profile.role === "admin" &&
+                                (eligibility?.ok ? (
+                                  <RevertBatchForm batchId={b.id} />
+                                ) : (
+                                  <p className="max-w-[10rem] text-right text-xs muted">
+                                    Não dá pra reverter: {eligibility?.reason}
+                                  </p>
+                                ))}
                             </div>
                             {b.status === "in_progress" && (
                               <CompleteBatchForm
