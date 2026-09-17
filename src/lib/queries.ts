@@ -350,7 +350,7 @@ export async function listExternalPurchases(orgId: string, limit = 20) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("external_purchases")
-    .select("id, supplier_name, note, occurred_on, total_cents")
+    .select("id, supplier_name, note, occurred_on, total_cents, reverted_at, reversal_reason")
     .eq("org_id", orgId)
     .order("occurred_on", { ascending: false })
     .limit(limit);
@@ -415,7 +415,7 @@ export async function listExpenses(orgId: string, limit = 20) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("expenses")
-    .select("id, category, description, occurred_on, amount_cents, cost_type")
+    .select("id, category, description, occurred_on, amount_cents, cost_type, reverted_at, reversal_reason")
     .eq("org_id", orgId)
     .order("occurred_on", { ascending: false })
     .limit(limit);
@@ -503,6 +503,7 @@ export async function periodSummary(orgId: string, from: string, to: string) {
     .from("expenses")
     .select("amount_cents")
     .eq("org_id", orgId)
+    .is("reverted_at", null)
     .gte("occurred_on", from)
     .lte("occurred_on", to);
 
@@ -510,6 +511,7 @@ export async function periodSummary(orgId: string, from: string, to: string) {
     .from("external_purchases")
     .select("total_cents")
     .eq("org_id", orgId)
+    .is("reverted_at", null)
     .gte("occurred_on", from)
     .lte("occurred_on", to);
 
@@ -572,6 +574,7 @@ export async function breakEven(orgId: string, from: string, to: string) {
     .select("amount_cents")
     .eq("org_id", orgId)
     .eq("cost_type", "fixed")
+    .is("reverted_at", null)
     .gte("occurred_on", from)
     .lte("occurred_on", to);
 

@@ -19,6 +19,7 @@ export function ConfirmDialog({
   className = "btn-danger",
   error,
   success,
+  extraFields,
 }: {
   children: React.ReactNode;
   confirmMessage: string;
@@ -27,6 +28,8 @@ export function ConfirmDialog({
   className?: string;
   error?: string | null;
   success?: boolean;
+  /** Campos extras (ex: motivo do cancelamento) renderizados dentro do diálogo, entre a mensagem e os botões. */
+  extraFields?: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const { pending } = useFormStatus();
@@ -46,6 +49,7 @@ export function ConfirmDialog({
       >
         <div className="space-y-3 p-4">
           <p className="text-sm">{confirmMessage}</p>
+          {extraFields}
           {error && <p className="text-xs font-medium text-red-600">{error}</p>}
           <div className="flex gap-2">
             <button type="button" className="btn-ghost flex-1" onClick={() => ref.current?.close()}>

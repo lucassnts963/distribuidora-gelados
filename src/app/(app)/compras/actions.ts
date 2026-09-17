@@ -6,6 +6,7 @@ import { getSessionProfile } from "@/lib/auth";
 import { recalcVariantCost } from "@/lib/costing";
 import { parseItems } from "@/lib/formItems";
 import { today } from "@/lib/format";
+import { reverseExternalPurchase } from "@/lib/reversals";
 
 function s(form: FormData, key: string) {
   return String(form.get(key) ?? "").trim();
@@ -56,6 +57,24 @@ export async function createExternalPurchaseAction(_: unknown, form: FormData) {
   if (moveError) return { error: "Estoque não foi atualizado: " + moveError.message };
 
   await Promise.all(items.map((i) => recalcVariantCost(profile.org.id, i.variantId)));
+
+  revalidatePath("/compras");
+  revalidatePath("/estoque");
+  return { ok: true };
+}
+
+export async function cancelExternalPurchaseAction(_: unknown, form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile) return { error: "Sessão inválida." };
+  if (profile.role !== "admin") return { error: "Só um administrador pode cancelar uma compra." };
+
+  const purchaseId = s(form, "id");
+  const reasonKind = s(form, "reason_kind") || "Outro";
+  const reasonNote = s(form, "reason_note");
+  const reason = reasonNote ? `${reasonKind} — ${reasonNote}` : reasonKind;
+
+  const result = await reverseExternalPurchase(purchaseId, profile.org.id, reason);
+  if (result.error) return { error: result.error };
 
   revalidatePath("/compras");
   revalidatePath("/estoque");

@@ -207,3 +207,108 @@ export async function reverseProductionBatch(batchId: string, orgId: string) {
 
   return { ok: true };
 }
+
+/**
+ * A mais simples das quatro reversões: despesa não tem impacto de
+ * estoque, então não precisa de movimento de estorno — só sai da soma de
+ * expensesTotal/fixedCostsTotal (queries.ts) porque reverted_at deixa de
+ * ser null.
+ */
+export async function reverseExpense(expenseId: string, orgId: string, reason: string) {
+  const supabase = await createClient();
+
+  const { data: expense } = await supabase
+    .from("expenses")
+    .select("id, org_id, reverted_at")
+    .eq("id", expenseId)
+    .single();
+  if (!expense || expense.org_id !== orgId) return { error: "Despesa não encontrada." };
+  if (expense.reverted_at) return { error: "Essa despesa já foi cancelada." };
+
+  const { error } = await supabase
+    .from("expenses")
+    .update({ reverted_at: new Date().toISOString(), reversal_reason: reason })
+    .eq("id", expenseId);
+  if (error) return { error: error.message };
+
+  return { ok: true };
+}
+
+/**
+ * Mesmo padrão de reverseProductionBatch sem lote — compra externa não
+ * tem conceito de lote, então usa a mesma checagem agregada. Limitação
+ * conhecida e aceita (igual à da produção sem lote): não isola por
+ * transação específica se houver múltiplas compras da mesma variação
+ * entre a compra e a reversão.
+ */
+export async function reverseExternalPurchase(purchaseId: string, orgId: string, reason: string) {
+  const supabase = await createClient();
+
+  const { data: purchase } = await supabase
+    .from("external_purchases")
+    .select("id, org_id, reverted_at")
+    .eq("id", purchaseId)
+    .single();
+  if (!purchase || purchase.org_id !== orgId) return { error: "Compra não encontrada." };
+  if (purchase.reverted_at) return { error: "Essa compra já foi cancelada." };
+
+  const { data: items } = await supabase
+    .from("external_purchase_items")
+    .select("variant_id, qty")
+    .eq("external_purchase_id", purchaseId);
+  if (!items?.length) return { error: "Não achei os itens dessa compra." };
+
+  const byVariant = new Map<string, number>();
+  for (const i of items) {
+    byVariant.set(i.variant_id, (byVariant.get(i.variant_id) ?? 0) + Number(i.qty));
+  }
+
+  for (const [variantId, qty] of byVariant) {
+    const { data: cost } = await supabase
+      .from("variant_costs")
+      .select("qty")
+      .eq("org_id", orgId)
+      .eq("variant_id", variantId)
+      .maybeSingle();
+    if (!cost || Number(cost.qty) < qty) {
+      return { error: "Parte do que essa compra trouxe já foi vendida — não dá pra reverter." };
+    }
+  }
+
+  const { data: purchaseMovements } = await supabase
+    .from("inventory_movements")
+    .select("id, variant_id, qty, unit_cost_cents")
+    .eq("org_id", orgId)
+    .eq("reference_type", "external_purchase")
+    .eq("reference_id", purchaseId)
+    .eq("movement_type", "purchase");
+  if (!purchaseMovements?.length) return { error: "Não achei os movimentos de estoque dessa compra." };
+
+  const occurredOn = today();
+  const { error: reversalError } = await supabase.from("inventory_movements").insert(
+    purchaseMovements.map((m) => ({
+      org_id: orgId,
+      variant_id: m.variant_id,
+      movement_type: "reversal" as const,
+      qty: -Number(m.qty),
+      unit_cost_cents: m.unit_cost_cents,
+      occurred_on: occurredOn,
+      reference_type: "external_purchase" as const,
+      reference_id: purchaseId,
+      reverses_movement_id: m.id,
+      reason: "Estorno de compra cancelada — " + reason,
+    }))
+  );
+  if (reversalError) return { error: "Não deu pra estornar o estoque: " + reversalError.message };
+
+  const variantIds = [...new Set(purchaseMovements.map((m) => m.variant_id))];
+  await Promise.all(variantIds.map((v) => recalcVariantCost(orgId, v)));
+
+  const { error: statusError } = await supabase
+    .from("external_purchases")
+    .update({ reverted_at: new Date().toISOString(), reversal_reason: reason })
+    .eq("id", purchaseId);
+  if (statusError) return { error: statusError.message };
+
+  return { ok: true };
+}
