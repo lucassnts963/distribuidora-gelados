@@ -26,6 +26,18 @@ export function PhotoUploadForm({
     setError(null);
 
     const supabase = createClient();
+
+    // Upload vai direto pro Storage, sem passar pelo middleware.ts que
+    // renova o token a cada request — se a aba ficou aberta e o token
+    // expirou, essa chamada iria como usuario nao-autenticado e a RLS
+    // rejeitaria como se fosse anon. getSession() renova antes de seguir.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setError("Sessão expirada. Atualize a página e tente de novo.");
+      setUploading(false);
+      return;
+    }
+
     const ext = file.name.split(".").pop() || "jpg";
     const path = `${orgId}/${variantId}/${Date.now()}.${ext}`;
 
