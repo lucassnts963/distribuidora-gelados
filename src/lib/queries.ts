@@ -731,6 +731,23 @@ export async function listCommissions(orgId: string, from: string, to: string) {
   })).sort((a, b) => b.commissionCents - a.commissionCents);
 }
 
+/** Comissão já paga por vendedor no período — soma de commission_payouts. */
+export async function listCommissionPayouts(orgId: string, from: string, to: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("commission_payouts")
+    .select("vendor_id, amount_cents")
+    .eq("org_id", orgId)
+    .gte("created_at", from)
+    .lte("created_at", to + "T23:59:59");
+
+  const byVendor = new Map<string, number>();
+  for (const p of data ?? []) {
+    byVendor.set(p.vendor_id, (byVendor.get(p.vendor_id) ?? 0) + p.amount_cents);
+  }
+  return byVendor;
+}
+
 /**
  * Módulos desligados pra essa organização — sem linha em org_modules pra
  * um módulo, ele está liberado (grandfathering). Só as exceções vêm daqui.
