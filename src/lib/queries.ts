@@ -379,6 +379,7 @@ export async function listSalesDetailed(orgId: string, from: string, to: string)
     )
     .eq("supplier_org_id", orgId)
     .eq("status", "delivered")
+    .is("reverted_at", null)
     .gte("created_at", from)
     .lte("created_at", to + "T23:59:59")
     .order("created_at", { ascending: true });
@@ -474,21 +475,29 @@ export async function listPaymentMethods(orgId: string) {
 export async function periodSummary(orgId: string, from: string, to: string) {
   const supabase = await createClient();
 
-  const { data: saleMovements } = await supabase
-    .from("inventory_movements")
-    .select("qty, unit_cost_cents")
-    .eq("org_id", orgId)
-    .eq("movement_type", "sale")
-    .gte("occurred_on", from)
-    .lte("occurred_on", to);
-
+  // Venda cancelada não pode contar em receita/CMV — daí o filtro em
+  // reverted_at e os movimentos de estoque buscados por reference_id (das
+  // ordens já filtradas) em vez de por data, senão o estorno (que também
+  // fica no ledger, imutável) não teria como ser excluído do cálculo.
   const { data: orders } = await supabase
     .from("orders")
-    .select("total_cents, fee_cents")
+    .select("id, total_cents, fee_cents")
     .eq("supplier_org_id", orgId)
     .eq("status", "delivered")
+    .is("reverted_at", null)
     .gte("created_at", from)
     .lte("created_at", to + "T23:59:59");
+
+  const orderIds = (orders ?? []).map((o) => o.id);
+  const { data: saleMovements } = orderIds.length
+    ? await supabase
+        .from("inventory_movements")
+        .select("qty, unit_cost_cents")
+        .eq("org_id", orgId)
+        .eq("movement_type", "sale")
+        .eq("reference_type", "order")
+        .in("reference_id", orderIds)
+    : { data: [] as { qty: number; unit_cost_cents: number }[] };
 
   const { data: expenses } = await supabase
     .from("expenses")
@@ -540,19 +549,23 @@ export async function breakEven(orgId: string, from: string, to: string) {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("total_cents, fee_cents, commission_cents")
+    .select("id, total_cents, fee_cents, commission_cents")
     .eq("supplier_org_id", orgId)
     .eq("status", "delivered")
+    .is("reverted_at", null)
     .gte("created_at", from)
     .lte("created_at", to + "T23:59:59");
 
-  const { data: saleMovements } = await supabase
-    .from("inventory_movements")
-    .select("qty, unit_cost_cents")
-    .eq("org_id", orgId)
-    .eq("movement_type", "sale")
-    .gte("occurred_on", from)
-    .lte("occurred_on", to);
+  const orderIds = (orders ?? []).map((o) => o.id);
+  const { data: saleMovements } = orderIds.length
+    ? await supabase
+        .from("inventory_movements")
+        .select("qty, unit_cost_cents")
+        .eq("org_id", orgId)
+        .eq("movement_type", "sale")
+        .eq("reference_type", "order")
+        .in("reference_id", orderIds)
+    : { data: [] as { qty: number; unit_cost_cents: number }[] };
 
   const { data: fixedExpenses } = await supabase
     .from("expenses")
@@ -591,6 +604,7 @@ export async function channelBreakdown(orgId: string, from: string, to: string) 
     .select("channel, total_cents")
     .eq("supplier_org_id", orgId)
     .eq("status", "delivered")
+    .is("reverted_at", null)
     .gte("created_at", from)
     .lte("created_at", to + "T23:59:59");
 
@@ -645,6 +659,7 @@ export async function listCommissions(orgId: string, from: string, to: string) {
     .select("created_by, total_cents, commission_cents")
     .eq("supplier_org_id", orgId)
     .eq("status", "delivered")
+    .is("reverted_at", null)
     .not("commission_cents", "is", null)
     .gte("created_at", from)
     .lte("created_at", to + "T23:59:59");
