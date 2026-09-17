@@ -43,6 +43,23 @@ npm run dev                # http://localhost:3000
 
 Crie uma conta em `/cadastro`, depois uma organização em `/onboarding`.
 
+## Migrations do banco
+
+O schema fica versionado em `supabase/migrations/` — essa pasta é a fonte da
+verdade, não o que estiver no painel do Supabase. Cada arquivo é uma migration
+já aplicada em produção, aplicada na ordem do nome (prefixo de timestamp).
+
+Para aplicar num projeto Supabase novo (staging, ou recriar do zero):
+
+```bash
+npx supabase init                              # gera o config.toml, se faltar
+npx supabase link --project-ref <ref-do-projeto>
+npx supabase db push
+```
+
+Mudança de schema daqui pra frente: criar o arquivo em `supabase/migrations/`
+antes de aplicar, e commitar junto com o código que depende dela.
+
 ## Custo médio ponderado móvel
 
 Mesma lógica e mesmos números do app original (ver `src/lib/costing.ts`):
