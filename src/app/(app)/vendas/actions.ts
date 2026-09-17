@@ -130,14 +130,16 @@ export async function createSaleAction(_: unknown, form: FormData) {
   return { ok: true };
 }
 
-export async function cancelSaleAction(form: FormData) {
+export async function cancelSaleAction(_: unknown, form: FormData) {
   const profile = await getSessionProfile();
-  if (!profile) return;
-  if (profile.role !== "admin") return;
+  if (!profile) return { error: "Sessão inválida." };
+  if (profile.role !== "admin") return { error: "Só um administrador pode cancelar uma venda." };
 
   const orderId = s(form, "id");
-  await reverseSale(orderId, profile.org.id);
+  const result = await reverseSale(orderId, profile.org.id);
+  if (result.error) return { error: result.error };
 
   revalidatePath("/vendas");
   revalidatePath("/estoque");
+  return { ok: true };
 }

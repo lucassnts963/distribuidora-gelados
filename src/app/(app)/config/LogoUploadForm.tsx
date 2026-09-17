@@ -31,7 +31,12 @@ export function LogoUploadForm({ orgId, logoUrl }: { orgId: string; logoUrl: str
     const { data } = supabase.storage.from("product-photos").getPublicUrl(path);
     const form = new FormData();
     form.set("logo_url", data.publicUrl);
-    await setOrgLogoAction(form);
+    const result = await setOrgLogoAction(form);
+    if (result?.error) {
+      setError(result.error);
+      setUploading(false);
+      return;
+    }
 
     setPreview(data.publicUrl);
     setUploading(false);

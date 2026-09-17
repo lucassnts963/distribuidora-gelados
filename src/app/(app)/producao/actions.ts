@@ -180,17 +180,19 @@ export async function completeBatchAction(_: unknown, form: FormData) {
     : { ok: true };
 }
 
-export async function revertBatchAction(form: FormData) {
+export async function revertBatchAction(_: unknown, form: FormData) {
   const profile = await getSessionProfile();
-  if (!profile) return;
-  if (profile.role !== "admin") return;
+  if (!profile) return { error: "Sessão inválida." };
+  if (profile.role !== "admin") return { error: "Só um administrador pode reverter uma produção." };
 
   const batchId = s(form, "id");
-  await reverseProductionBatch(batchId, profile.org.id);
+  const result = await reverseProductionBatch(batchId, profile.org.id);
+  if (result.error) return { error: result.error };
 
   revalidatePath("/producao");
   revalidatePath("/estoque");
   revalidatePath("/insumos");
+  return { ok: true };
 }
 
 export async function createCapacityPlanAction(_: unknown, form: FormData) {

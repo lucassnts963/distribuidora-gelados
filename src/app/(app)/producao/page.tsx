@@ -5,11 +5,11 @@ import { fmtDate } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Modal } from "@/components/Modal";
 import { SubmitButton } from "@/components/SubmitButton";
-import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
-import { startBatchAction, cancelBatchAction, revertBatchAction } from "./actions";
+import { startBatchAction, cancelBatchAction } from "./actions";
 import { NewBatchForm } from "./NewBatchForm";
 import { CompleteBatchForm } from "./CompleteBatchForm";
 import { CapacityPlanForm } from "./CapacityPlanForm";
+import { RevertBatchForm } from "./RevertBatchForm";
 
 export const dynamic = "force-dynamic";
 
@@ -85,16 +85,7 @@ export default async function ProducaoPage() {
                                 </div>
                               )}
                               {b.status === "completed" && !b.reverted_at && profile.role === "admin" && (
-                                <form action={revertBatchAction}>
-                                  <input type="hidden" name="id" value={b.id} />
-                                  <ConfirmSubmitButton
-                                    className="btn-ghost"
-                                    pendingText="Revertendo…"
-                                    confirmMessage="Reverter essa produção? Só funciona se nada dela foi vendido ainda."
-                                  >
-                                    Reverter
-                                  </ConfirmSubmitButton>
-                                </form>
+                                <RevertBatchForm batchId={b.id} />
                               )}
                             </div>
                             {b.status === "in_progress" && (

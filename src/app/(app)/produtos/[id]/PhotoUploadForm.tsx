@@ -43,7 +43,12 @@ export function PhotoUploadForm({
     form.set("id", variantId);
     form.set("product_id", productId);
     form.set("photo_url", data.publicUrl);
-    await setVariantPhotoAction(form);
+    const result = await setVariantPhotoAction(form);
+    if (result?.error) {
+      setError(result.error);
+      setUploading(false);
+      return;
+    }
 
     setPreview(data.publicUrl);
     setUploading(false);

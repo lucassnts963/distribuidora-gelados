@@ -44,6 +44,10 @@ export function ScanQRButton({ onDecode }: { onDecode: (text: string) => void })
 
   async function start() {
     setError(null);
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      setError("Leitura de câmera só funciona em HTTPS (ou localhost) — digite o código.");
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Esse navegador não suporta leitura de câmera — digite o código.");
       return;
@@ -57,8 +61,17 @@ export function ScanQRButton({ onDecode }: { onDecode: (text: string) => void })
       }
       setScanning(true);
       rafRef.current = requestAnimationFrame(tick);
-    } catch {
-      setError("Não deu pra acessar a câmera — digite o código.");
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "NotAllowedError") {
+        setError("Permissão de câmera negada — libere o acesso nas configurações do navegador ou digite o código.");
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        setError("Não achei uma câmera nesse dispositivo — digite o código.");
+      } else if (name === "NotReadableError") {
+        setError("A câmera já está sendo usada por outro app — digite o código.");
+      } else {
+        setError("Não deu pra acessar a câmera — digite o código.");
+      }
     }
   }
 

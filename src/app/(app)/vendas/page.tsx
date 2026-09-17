@@ -9,10 +9,9 @@ import {
   getLoyaltySettings,
 } from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
-import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { fmtDate } from "@/lib/format";
 import { SaleFormSwitcher } from "./SaleFormSwitcher";
-import { cancelSaleAction } from "./actions";
+import { CancelSaleForm } from "./CancelSaleForm";
 
 export const dynamic = "force-dynamic";
 
@@ -59,18 +58,7 @@ export default async function VendasPage() {
                       className={`font-bold ${sale.reverted_at ? "text-stone-400 line-through" : ""}`}
                     />
                   </div>
-                  {!sale.reverted_at && profile.role === "admin" && (
-                    <form action={cancelSaleAction}>
-                      <input type="hidden" name="id" value={sale.id} />
-                      <ConfirmSubmitButton
-                        className="btn-danger w-full"
-                        pendingText="Cancelando…"
-                        confirmMessage="Cancelar essa venda? O estoque volta pelo custo que saiu."
-                      >
-                        Cancelar venda
-                      </ConfirmSubmitButton>
-                    </form>
-                  )}
+                  {!sale.reverted_at && profile.role === "admin" && <CancelSaleForm saleId={sale.id} />}
                 </li>
               );
             })}

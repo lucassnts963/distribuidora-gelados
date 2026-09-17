@@ -113,12 +113,19 @@ export async function saveCatalogSlugAction(_: unknown, form: FormData) {
 
 export async function setOrgLogoAction(form: FormData) {
   const profile = await getSessionProfile();
-  if (!profile || profile.role !== "admin") return;
+  if (!profile) return { error: "Sessão inválida." };
+  if (profile.role !== "admin") return { error: "Só um administrador pode mudar o logo." };
 
   const logoUrl = s(form, "logo_url");
   const supabase = await createClient();
-  await supabase.from("organizations").update({ logo_url: logoUrl || null }).eq("id", profile.org.id);
+  const { error } = await supabase
+    .from("organizations")
+    .update({ logo_url: logoUrl || null })
+    .eq("id", profile.org.id);
+  if (error) return { error: "Não deu pra salvar o logo: " + error.message };
+
   revalidatePath("/config");
+  return { ok: true };
 }
 
 function toNumber(v: string) {

@@ -108,8 +108,11 @@ export async function setVariantPhotoAction(form: FormData) {
   const productId = s(form, "product_id");
   const photoUrl = s(form, "photo_url");
   const supabase = await createClient();
-  await supabase.from("product_variants").update({ photo_url: photoUrl || null }).eq("id", id);
+  const { error } = await supabase.from("product_variants").update({ photo_url: photoUrl || null }).eq("id", id);
+  if (error) return { error: "Não deu pra salvar a foto: " + error.message };
+
   revalidatePath(`/produtos/${productId}`);
+  return { ok: true };
 }
 
 export async function addRecipeItemAction(_: unknown, form: FormData) {
