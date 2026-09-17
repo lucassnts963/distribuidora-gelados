@@ -7,7 +7,7 @@ import { ItemsForm } from "@/components/ItemsForm";
 type Variant = { id: string; name: string; products?: { name: string } | null };
 type Contact = { id: string; name: string };
 type Price = { wholesale_cents: number | null; retail_cents: number | null };
-type PaymentMethod = { id: string; name: string; fee_percent: number };
+type PaymentMethod = { id: string; name: string; fee_percent: number; is_deferred: boolean };
 
 export function NewSaleForm({
   variants,
@@ -26,8 +26,10 @@ export function NewSaleForm({
 }) {
   const [state, action, pending] = useActionState(createSaleAction, null);
   const [channel, setChannel] = useState<"retail" | "wholesale">("wholesale");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const priceMap = new Map(Object.entries(prices));
   const costMap = new Map(Object.entries(costs));
+  const selectedMethod = paymentMethods.find((pm) => pm.id === paymentMethodId);
 
   return (
     <form action={action} className="card space-y-4 p-4">
@@ -50,15 +52,29 @@ export function NewSaleForm({
           <option value="retail">Varejo</option>
         </select>
         {paymentMethods.length > 0 && (
-          <select name="payment_method_id" className="inp">
+          <select
+            name="payment_method_id"
+            className="inp"
+            value={paymentMethodId}
+            onChange={(e) => setPaymentMethodId(e.target.value)}
+          >
             <option value="">Sem forma de pagamento</option>
             {paymentMethods.map((pm) => (
               <option key={pm.id} value={pm.id}>
                 {pm.name}
                 {pm.fee_percent ? ` (${pm.fee_percent}%)` : ""}
+                {pm.is_deferred ? " · a prazo" : ""}
               </option>
             ))}
           </select>
+        )}
+        {selectedMethod?.is_deferred && (
+          <input
+            name="due_date"
+            type="date"
+            className="inp"
+            defaultValue={new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)}
+          />
         )}
       </div>
       <ItemsForm

@@ -56,14 +56,18 @@ export async function createSaleAction(_: unknown, form: FormData) {
   // Mesmo princípio pra taxa da forma de pagamento: congela o percentual
   // vigente agora, mudar a taxa depois não altera venda já feita.
   let feeCents: number | null = null;
+  let dueDate: string | null = null;
   if (paymentMethodId) {
     const { data: method } = await supabase
       .from("payment_methods")
-      .select("fee_percent")
+      .select("fee_percent, is_deferred")
       .eq("id", paymentMethodId)
       .eq("org_id", profile.org.id)
       .maybeSingle();
-    if (method) feeCents = Math.round((total * Number(method.fee_percent)) / 100);
+    if (method) {
+      feeCents = Math.round((total * Number(method.fee_percent)) / 100);
+      if (method.is_deferred) dueDate = s(form, "due_date") || null;
+    }
   }
 
   const { data: order, error: orderError } = await supabase
@@ -77,6 +81,7 @@ export async function createSaleAction(_: unknown, form: FormData) {
       commission_cents: commissionCents,
       payment_method_id: paymentMethodId || null,
       fee_cents: feeCents,
+      due_date: dueDate,
       created_by: profile.userId,
       decided_at: new Date().toISOString(),
     })

@@ -466,7 +466,7 @@ export async function listPaymentMethods(orgId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("payment_methods")
-    .select("id, name, fee_percent, active")
+    .select("id, name, fee_percent, active, is_deferred")
     .eq("org_id", orgId)
     .order("name");
   return data ?? [];
@@ -515,6 +515,22 @@ export async function periodSummary(orgId: string, from: string, to: string) {
     .gte("occurred_on", from)
     .lte("occurred_on", to);
 
+  // Caixa x Receita propositalmente separados: receita conta no regime de
+  // competência (momento da venda), mas venda a prazo (due_date definido)
+  // só vira caixa quando de fato recebida (paid_at) — daí o OR: pega venda
+  // à vista criada no período, OU venda a prazo paga no período (mesmo
+  // que criada antes).
+  const { data: cashOrders } = await supabase
+    .from("orders")
+    .select("total_cents")
+    .eq("supplier_org_id", orgId)
+    .eq("status", "delivered")
+    .is("reverted_at", null)
+    .or(
+      `and(due_date.is.null,created_at.gte.${from},created_at.lte.${to}T23:59:59),` +
+        `and(due_date.not.is.null,paid_at.gte.${from},paid_at.lte.${to}T23:59:59)`
+    );
+
   const revenue = (orders ?? []).reduce((sum, o) => sum + o.total_cents, 0);
   const feesTotal = (orders ?? []).reduce((sum, o) => sum + (o.fee_cents ?? 0), 0);
   const cmv = (saleMovements ?? []).reduce((sum, m) => sum + Math.abs(Number(m.qty)) * m.unit_cost_cents, 0);
@@ -522,7 +538,7 @@ export async function periodSummary(orgId: string, from: string, to: string) {
   const purchasesTotal = (purchases ?? []).reduce((sum, p) => sum + p.total_cents, 0);
   const grossProfit = revenue - cmv;
   const netProfit = grossProfit - expensesTotal - feesTotal;
-  const cashIn = revenue;
+  const cashIn = (cashOrders ?? []).reduce((sum, o) => sum + o.total_cents, 0);
   const cashOut = purchasesTotal + expensesTotal + feesTotal;
 
   return {
@@ -537,6 +553,33 @@ export async function periodSummary(orgId: string, from: string, to: string) {
     cashOut,
     cashFlow: cashIn - cashOut,
   };
+}
+
+/** Pedidos a prazo ainda não recebidos — contato (venda) ou organização parceira (pedido). */
+export async function listReceivables(orgId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("orders")
+    .select(
+      "id, total_cents, due_date, created_at, contact:contacts(name), buyer:organizations!buyer_org_id(name)"
+    )
+    .eq("supplier_org_id", orgId)
+    .eq("status", "delivered")
+    .is("reverted_at", null)
+    .not("due_date", "is", null)
+    .is("paid_at", null)
+    .order("due_date", { ascending: true });
+
+  return (data ?? []).map((o) => {
+    const contact = o.contact as unknown as { name: string } | null;
+    const buyer = o.buyer as unknown as { name: string } | null;
+    return {
+      id: o.id as string,
+      totalCents: o.total_cents as number,
+      dueDate: o.due_date as string,
+      who: contact?.name ?? buyer?.name ?? "—",
+    };
+  });
 }
 
 /**

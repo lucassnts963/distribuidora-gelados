@@ -15,6 +15,10 @@ export function AddPaymentMethodForm() {
         <label className="lbl">Taxa (%)</label>
         <input name="fee_percent" className="inp w-28" inputMode="decimal" placeholder="0" />
       </div>
+      <label className="flex items-center gap-2 pb-2 text-sm">
+        <input type="checkbox" name="is_deferred" className="h-4 w-4" />
+        A prazo (não conta como caixa até ser recebido)
+      </label>
       <button className="btn-primary" disabled={pending}>
         {pending ? "..." : "Adicionar"}
       </button>

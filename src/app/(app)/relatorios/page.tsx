@@ -7,9 +7,12 @@ import {
   supplierAvailableStock,
   reorderSuggestions,
   breakEven,
+  listReceivables,
 } from "@/lib/queries";
-import { Section, Empty, Stat } from "@/components/ui";
-import { monthOf, monthStart, monthEnd, fmtMonth } from "@/lib/format";
+import { Section, Empty, Stat, Money } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
+import { monthOf, monthStart, monthEnd, fmtMonth, fmtDate, daysUntil } from "@/lib/format";
+import { markOrderPaidAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +24,14 @@ export default async function RelatoriosPage() {
   const from = monthStart(month);
   const to = monthEnd(month);
 
-  const [summary, channels, stock, suppliers, reorders, equilibrium] = await Promise.all([
+  const [summary, channels, stock, suppliers, reorders, equilibrium, receivables] = await Promise.all([
     periodSummary(profile.org.id, from, to),
     channelBreakdown(profile.org.id, from, to),
     stockValue(profile.org.id),
     listActiveSuppliers(profile.org.id),
     reorderSuggestions(profile.org.id),
     breakEven(profile.org.id, from, to),
+    listReceivables(profile.org.id),
   ]);
 
   const supplierStocks = await Promise.all(
@@ -96,6 +100,38 @@ export default async function RelatoriosPage() {
               </p>
             )}
           </>
+        )}
+      </Section>
+
+      <Section title="Contas a receber">
+        {!receivables.length ? (
+          <Empty>Nenhuma venda a prazo em aberto.</Empty>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {receivables.map((r) => {
+              const days = daysUntil(r.dueDate);
+              return (
+                <li key={r.id} className="card space-y-2 p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="font-semibold">{r.who}</div>
+                      <div className={`text-xs ${days < 0 ? "text-red-600" : "muted"}`}>
+                        Vence {fmtDate(r.dueDate)}
+                        {days < 0 ? ` · ${-days} dia(s) em atraso` : ""}
+                      </div>
+                    </div>
+                    <Money cents={r.totalCents} className="font-bold" />
+                  </div>
+                  <form action={markOrderPaidAction}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <SubmitButton className="btn-primary w-full" pendingText="Marcando…">
+                      Marcar como recebido
+                    </SubmitButton>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </Section>
 

@@ -84,7 +84,14 @@ export default async function PrecosPage() {
         ) : (
           <ul className="space-y-2">
             {paymentMethods.map((pm) => (
-              <PaymentMethodItem key={pm.id} id={pm.id} name={pm.name} feePercent={pm.fee_percent} active={pm.active} />
+              <PaymentMethodItem
+                key={pm.id}
+                id={pm.id}
+                name={pm.name}
+                feePercent={pm.fee_percent}
+                active={pm.active}
+                isDeferred={pm.is_deferred}
+              />
             ))}
           </ul>
         )}

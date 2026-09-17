@@ -6,7 +6,7 @@ import { createSaleAction } from "./actions";
 type Variant = { id: string; name: string; products?: { name: string } | null; photoUrl?: string | null };
 type Contact = { id: string; name: string };
 type Price = { wholesale_cents: number | null; retail_cents: number | null };
-type PaymentMethod = { id: string; name: string; fee_percent: number };
+type PaymentMethod = { id: string; name: string; fee_percent: number; is_deferred: boolean };
 type CartLine = { qty: number; priceCents: number };
 
 export function PDVForm({
@@ -27,7 +27,9 @@ export function PDVForm({
   const [channel, setChannel] = useState<"retail" | "wholesale">("wholesale");
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<Record<string, CartLine>>({});
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const priceMap = new Map(Object.entries(prices));
+  const selectedMethod = paymentMethods.find((pm) => pm.id === paymentMethodId);
 
   const filtered = variants.filter((v) => {
     if (!query.trim()) return true;
@@ -92,15 +94,29 @@ export function PDVForm({
           <option value="retail">Varejo</option>
         </select>
         {paymentMethods.length > 0 && (
-          <select name="payment_method_id" className="inp">
+          <select
+            name="payment_method_id"
+            className="inp"
+            value={paymentMethodId}
+            onChange={(e) => setPaymentMethodId(e.target.value)}
+          >
             <option value="">Sem forma de pagamento</option>
             {paymentMethods.map((pm) => (
               <option key={pm.id} value={pm.id}>
                 {pm.name}
                 {pm.fee_percent ? ` (${pm.fee_percent}%)` : ""}
+                {pm.is_deferred ? " · a prazo" : ""}
               </option>
             ))}
           </select>
+        )}
+        {selectedMethod?.is_deferred && (
+          <input
+            name="due_date"
+            type="date"
+            className="inp"
+            defaultValue={new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)}
+          />
         )}
       </div>
 

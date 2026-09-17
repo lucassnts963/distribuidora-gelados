@@ -50,6 +50,22 @@ export async function createOrderAction(_: unknown, form: FormData) {
 
   const total = items.reduce((sum, i) => sum + i.qty * i.cents, 0);
 
+  const paymentMethodId = s(form, "payment_method_id");
+  let feeCents: number | null = null;
+  let dueDate: string | null = null;
+  if (paymentMethodId) {
+    const { data: method } = await supabase
+      .from("payment_methods")
+      .select("fee_percent, is_deferred")
+      .eq("id", paymentMethodId)
+      .eq("org_id", supplierOrgId)
+      .maybeSingle();
+    if (method) {
+      feeCents = Math.round((total * Number(method.fee_percent)) / 100);
+      if (method.is_deferred) dueDate = s(form, "due_date") || null;
+    }
+  }
+
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
@@ -58,6 +74,9 @@ export async function createOrderAction(_: unknown, form: FormData) {
       status: "requested",
       channel,
       total_cents: total,
+      payment_method_id: paymentMethodId || null,
+      fee_cents: feeCents,
+      due_date: dueDate,
       created_by: profile.userId,
     })
     .select("id")

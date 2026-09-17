@@ -5,6 +5,7 @@ import {
   listActiveSuppliers,
   supplierAvailableStock,
   listOrgPrices,
+  listPaymentMethods,
 } from "@/lib/queries";
 import { Section, Empty, Money } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -41,11 +42,17 @@ export default async function PedidosPage() {
   const supplierOptions = await Promise.all(
     suppliers.map(async (s) => {
       const supplier = s.supplier as unknown as { id: string; name: string };
-      const [stock, prices] = await Promise.all([
+      const [stock, prices, paymentMethods] = await Promise.all([
         supplierAvailableStock(supplier.id),
         listOrgPrices(supplier.id),
+        listPaymentMethods(supplier.id),
       ]);
-      return { supplier, stock, prices: Object.fromEntries(prices) };
+      return {
+        supplier,
+        stock,
+        prices: Object.fromEntries(prices),
+        paymentMethods: paymentMethods.filter((pm) => pm.active),
+      };
     })
   );
 

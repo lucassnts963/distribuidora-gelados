@@ -43,11 +43,15 @@ export async function addPaymentMethodAction(_: unknown, form: FormData) {
   if (!name) return { error: "Informe um nome." };
   const feeInput = s(form, "fee_percent").replace(",", ".");
   const feePercent = feeInput ? Number(feeInput) : 0;
+  const isDeferred = s(form, "is_deferred") === "on";
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("payment_methods")
-    .insert({ org_id: profile.org.id, name, fee_percent: Number.isFinite(feePercent) ? feePercent : 0 });
+  const { error } = await supabase.from("payment_methods").insert({
+    org_id: profile.org.id,
+    name,
+    fee_percent: Number.isFinite(feePercent) ? feePercent : 0,
+    is_deferred: isDeferred,
+  });
   if (error) return { error: "Não deu pra salvar: " + error.message };
 
   revalidatePath("/precos");
@@ -83,6 +87,23 @@ export async function togglePaymentMethodAction(form: FormData) {
   await supabase
     .from("payment_methods")
     .update({ active: !active })
+    .eq("id", id)
+    .eq("org_id", profile.org.id);
+
+  revalidatePath("/precos");
+}
+
+export async function toggleDeferredAction(form: FormData) {
+  const profile = await getSessionProfile();
+  if (!profile) return;
+
+  const id = s(form, "id");
+  const isDeferred = s(form, "is_deferred") === "true";
+
+  const supabase = await createClient();
+  await supabase
+    .from("payment_methods")
+    .update({ is_deferred: !isDeferred })
     .eq("id", id)
     .eq("org_id", profile.org.id);
 

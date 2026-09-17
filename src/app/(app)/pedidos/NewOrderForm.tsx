@@ -5,22 +5,33 @@ import { createOrderAction } from "./actions";
 
 type StockRow = { variant_id: string; qty_available: number; name: string; product: string };
 type Price = { wholesale_cents: number | null; retail_cents: number | null };
-type Option = { supplier: { id: string; name: string }; stock: StockRow[]; prices: Record<string, Price> };
+type PaymentMethod = { id: string; name: string; fee_percent: number; is_deferred: boolean };
+type Option = {
+  supplier: { id: string; name: string };
+  stock: StockRow[];
+  prices: Record<string, Price>;
+  paymentMethods: PaymentMethod[];
+};
 
 export function NewOrderForm({ options }: { options: Option[] }) {
   const [state, action, pending] = useActionState(createOrderAction, null);
   const [supplierId, setSupplierId] = useState(options[0]?.supplier.id ?? "");
   const [channel, setChannel] = useState<"retail" | "wholesale">("wholesale");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const current = options.find((o) => o.supplier.id === supplierId);
+  const selectedMethod = current?.paymentMethods.find((pm) => pm.id === paymentMethodId);
 
   return (
     <form action={action} className="card space-y-4 p-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <select
           name="supplier_org_id"
           className="inp"
           value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
+          onChange={(e) => {
+            setSupplierId(e.target.value);
+            setPaymentMethodId("");
+          }}
         >
           {options.map((o) => (
             <option key={o.supplier.id} value={o.supplier.id}>
@@ -37,6 +48,31 @@ export function NewOrderForm({ options }: { options: Option[] }) {
           <option value="wholesale">Atacado</option>
           <option value="retail">Varejo</option>
         </select>
+        {!!current?.paymentMethods.length && (
+          <select
+            name="payment_method_id"
+            className="inp"
+            value={paymentMethodId}
+            onChange={(e) => setPaymentMethodId(e.target.value)}
+          >
+            <option value="">Sem forma de pagamento</option>
+            {current.paymentMethods.map((pm) => (
+              <option key={pm.id} value={pm.id}>
+                {pm.name}
+                {pm.fee_percent ? ` (${pm.fee_percent}%)` : ""}
+                {pm.is_deferred ? " · a prazo" : ""}
+              </option>
+            ))}
+          </select>
+        )}
+        {selectedMethod?.is_deferred && (
+          <input
+            name="due_date"
+            type="date"
+            className="inp"
+            defaultValue={new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)}
+          />
+        )}
       </div>
 
       {!current?.stock.length ? (

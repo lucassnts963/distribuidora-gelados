@@ -7,7 +7,7 @@ import { PDVForm } from "./PDVForm";
 type Variant = { id: string; name: string; products?: { name: string } | null; photoUrl?: string | null };
 type Contact = { id: string; name: string };
 type Price = { wholesale_cents: number | null; retail_cents: number | null };
-type PaymentMethod = { id: string; name: string; fee_percent: number };
+type PaymentMethod = { id: string; name: string; fee_percent: number; is_deferred: boolean };
 
 export function SaleFormSwitcher({
   variants,
